@@ -12,6 +12,7 @@ import {migrate} from './migrate';
 import {inspectTelegramInitData,makeSession,readSession,calcDiscount,maxRedeemable} from './security';
 import {initBot,handleTelegramUpdate,notifyOrder,notifyStatus} from './bot';
 import {canTransitionOrder,earnedBonusPoints,shouldAwardOrder,type OrderStatus} from './orderLifecycle';
+import {uaPhoneSchema} from './validation';
 
 class HttpError extends Error {constructor(public status:number,message:string){super(message);}}
 const app=express();
@@ -93,7 +94,7 @@ const catalogProduct=`SELECT p.*,c.name AS category_name,c.slug AS category_slug
   FROM products p JOIN categories c ON p.category_id=c.id`;
 app.get('/api/categories',wrap(async(_req,res)=>res.json(await query('SELECT * FROM categories WHERE is_active=true ORDER BY sort_order,id'))));
 app.get('/api/brands',wrap(async(_req,res)=>res.json(await query('SELECT * FROM brands WHERE is_active=true ORDER BY sort_order,id'))));
-app.get('/api/banners',wrap(async(_req,res)=>res.json(await query('SELECT * FROM banners WHERE is_active=true ORDER BY sort_order,id'))));
+app.get('/api/banners',wrap(async(_req,res)=>{res.set('Cache-Control','no-store, max-age=0');res.json(await query('SELECT * FROM banners WHERE is_active=true ORDER BY sort_order,id'));}));
 app.get('/api/products',wrap(async(req,res)=>{
   const category=typeof req.query.category==='string'?req.query.category.slice(0,80):'';
   const search=typeof req.query.search==='string'?req.query.search.slice(0,90):'';
@@ -152,7 +153,7 @@ app.post('/api/coupon/check',userGuard,wrap(async(req,res)=>{
   if(!c||input.subtotal<c.min_subtotal)throw new HttpError(400,'Промокод недійсний або не виконана мінімальна сума');
   res.json({code:c.code,discount:calcDiscount(input.subtotal,c)});
 }));
-const checkoutSchema=z.object({request_id:z.string().uuid(),customer_name:z.string().trim().min(2).max(90),phone:z.string().trim().regex(/^\+?[0-9 ()-]{9,22}$/),delivery_method:z.enum(['nova_poshta','ukrposhta','pickup']),city:z.string().trim().min(2).max(100),shipping_details:z.string().trim().min(1).max(200),payment_method:z.enum(['cod','manager']),comment:z.string().trim().max(800).default(''),coupon_code:z.string().trim().max(32).optional().default(''),bonus_used:z.number().int().nonnegative().default(0),age_agreed:z.literal(true)});
+const checkoutSchema=z.object({request_id:z.string().uuid(),first_name:z.string().trim().min(2).max(55),last_name:z.string().trim().min(2).max(55),phone:uaPhoneSchema,delivery_method:z.enum(['nova_poshta','ukrposhta','pickup']),city:z.string().trim().min(2).max(100),shipping_details:z.string().trim().min(1).max(200),payment_method:z.literal('cod'),comment:z.string().trim().max(800).default(''),coupon_code:z.string().trim().max(32).optional().default(''),bonus_used:z.number().int().nonnegative().default(0),age_agreed:z.literal(true)});
 app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(async(req,res)=>{
   if(!config.checkoutEnabled)throw new HttpError(403,'Оформлення вимкнено до перевірки законодавчих вимог та підтвердження віку');
   const data=validate(checkoutSchema,req.body);const user=getUser(res);
@@ -163,7 +164,7 @@ app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(asy
   const order=await tx(async c=>{
     const current=(await c.query('SELECT * FROM users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
     if(!current.age_confirmed)throw new HttpError(403,'Підтвердьте повноліття');
-    if(config.requireVerifiedAge && !current.age_verified)throw new HttpError(403,'Спочатку потрібно підтвердити вік через адміністратора магазину');
+    if(config.requireVerifiedAge && !current.age_verified)throw new HttpError(403,'Перед оформленням замовлення потрібно підтвердити вік у продавця.');
     const again=(await c.query('SELECT id,number,total FROM orders WHERE request_id=$1 AND user_id=$2',[data.request_id,user.id])).rows;
     if(again.length)return again[0];
     const lines=(await c.query(`SELECT ci.quantity,v.id AS variant_id,v.label,v.sku,v.stock,v.is_active,p.name,p.base_price,p.is_active AS product_active,
@@ -182,7 +183,7 @@ app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(asy
     }
     if(data.bonus_used>maxRedeemable(current.bonus_balance,subtotal-discount))throw new HttpError(400,'Недостатньо бонусів або перевищено ліміт 30%');
     const total=subtotal-discount-data.bonus_used*100;
-    const values=[user.id,data.request_id,data.customer_name,data.phone,data.delivery_method,data.city,data.shipping_details,data.payment_method,data.comment,subtotal,discount,data.bonus_used,total,cpn?.code||null];
+    const values=[user.id,data.request_id,`${data.first_name} ${data.last_name}`,data.phone,data.delivery_method,data.city,data.shipping_details,data.payment_method,data.comment,subtotal,discount,data.bonus_used,total,cpn?.code||null];
     const inserted=(await c.query(`INSERT INTO orders(user_id,request_id,customer_name,phone,delivery_method,city,shipping_details,payment_method,comment,subtotal,discount,bonus_used,total,coupon_code)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id,number,total`,values)).rows[0];
     for(const l of lines){

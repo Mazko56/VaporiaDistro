@@ -97,3 +97,12 @@ CREATE INDEX IF NOT EXISTS idx_brands_order ON brands(sort_order,id);
 UPDATE banners SET image_url='/banners/main-v13.webp' WHERE image_url='/banners/main.webp';
 UPDATE banners SET image_url='/banners/bonus-v13.webp' WHERE image_url='/banners/bonus.webp';
 UPDATE banners SET image_url='/banners/delivery-v13.webp' WHERE image_url='/banners/delivery.webp';
+
+-- VAPORIA 1.5: move ONLY built-in assets to a new versioned URL to avoid Telegram WebView cache.
+-- User-uploaded media (e.g. /api/media/<uuid>) and external custom banner URLs remain unchanged.
+UPDATE banners SET image_url='/banners/main-v15.webp'
+WHERE image_url IN ('/banners/main.webp','/banners/main-v13.webp');
+UPDATE banners SET image_url='/banners/bonus-v15.webp'
+WHERE image_url IN ('/banners/bonus.webp','/banners/bonus-v13.webp');
+UPDATE banners SET image_url='/banners/delivery-v15.webp'
+WHERE image_url IN ('/banners/delivery.webp','/banners/delivery-v13.webp');
