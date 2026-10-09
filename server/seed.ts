@@ -9,7 +9,7 @@ const categories=[
   ['inbottle','INBOTTLE','Фірмова лінійка','crown',50]
 ] as const;
 const products=[
-  {cat:'inbottle',slug:'inbottle-evo',name:'INBOTTLE EVO 30ml 50mg',brand:'INBOTTLE',price:35000,old:40000,badge:'ХІТ',color:'#a633ff',subtitle:'Серія EVO • 30 мл',desc:'Демонстраційна картка товару. Замініть опис, фото, наявність і характеристики на реальні в адмінпанелі.',variants:['Lemon lime 🍋','Cherry Sour Apple 🍒','Cafe Latte ☕','Blue razz ice 🧊','Mojito 🌿','Sour raspberry','Grape gummy 🍇']},
+  {cat:'ridyny',slug:'inbottle-evo',name:'INBOTTLE EVO 30ml 50mg',brand:'INBOTTLE',price:35000,old:40000,badge:'ХІТ',color:'#a633ff',subtitle:'Серія EVO • 30 мл',desc:'Демонстраційна картка товару. Замініть опис, фото, наявність і характеристики на реальні в адмінпанелі.',variants:['Lemon lime 🍋','Cherry Sour Apple 🍒','Cafe Latte ☕','Blue razz ice 🧊','Mojito 🌿','Sour raspberry','Grape gummy 🍇']},
   {cat:'ridyny',slug:'hype-hard',name:'HYPE HARD 30ml 70mg',brand:'HYPE',price:32000,old:null,badge:'НОВИНКА',color:'#b420b8',subtitle:'Насичений смак • 30 мл',desc:'Демонстраційний товар. Фото та характеристики можна редагувати в адмінці.',variants:['Ice Orange','Blackcurrant','Berry lemonade']},
   {cat:'pod-systemy',slug:'vaporesso-xros-6',name:'VAPORESSO XROS 6',brand:'VAPORESSO',price:130000,old:140000,badge:'',color:'#327bff',subtitle:'POD-система',desc:'Демонстраційний товар — перевіряйте реальну наявність та характеристики перед продажем.',variants:['Silk Brown','Space Gray','Pink','Ice Blue']},
   {cat:'ridyny',slug:'chaser-beat',name:'CHASER BEAT 30ml 50/65mg',brand:'CHASER',price:30000,old:35000,badge:'АКЦІЯ',color:'#8ee600',subtitle:'Колекція Beat',desc:'Демонстраційна позиція для тестового каталогу.',variants:['Cherry Pulse 🍒','Mango Ice','Green Apple 🍏']},
@@ -24,6 +24,8 @@ export async function seed(){
   // Only adjust the original seeded category label; do not overwrite edited categories.
   await pool.query("UPDATE categories SET name='Рідина-ароматизатори', sort_order=2 WHERE slug='ridyny' AND name='Рідини'");
   await pool.query("UPDATE categories SET sort_order=1 WHERE slug='pod-systemy' AND sort_order=2");
+  // Align the known demo product with the three new top-level categories, preserving user edits.
+  await pool.query("UPDATE products SET category_id=(SELECT id FROM categories WHERE slug='ridyny') WHERE slug='inbottle-evo' AND category_id=(SELECT id FROM categories WHERE slug='inbottle')");
   const brandNames = ['CHASER','HYPE','MOOD','DUCK','PUNCH','LUCKY','IN BOTTLE','ELFLIQ','ELYZIUM LAB','OCTOLAB','VAPORESSO','OXVA','VOOPOO'];
   for (const [i,name] of brandNames.entries()) {
     const slug=name.toLowerCase().replace(/\s+/g,'-');
@@ -41,7 +43,7 @@ export async function seed(){
     SELECT 'VAPORIA • DISTRO','БІЛЬШЕ НІЖ ПРОСТО ВЕЙП','Твій простір смаку. Відкривай новинки та фаворитів.','ДО КАТАЛОГУ','/catalog','hero',1
     WHERE NOT EXISTS(SELECT 1 FROM banners WHERE kind='hero')`);
   await pool.query(`INSERT INTO banners(eyebrow,title,subtitle,button_text,button_link,kind,sort_order)
-    SELECT 'VAPORIA BONUS','КУПУЙ — НАКОПИЧУЙ — ОТРИМУЙ БІЛЬШЕ','5% бонусами після виконаного замовлення','ДЕТАЛІ','/profile','bonus',2
+    SELECT 'VAPORIA BONUS','КУПУЙ — НАКОПИЧУЙ — ОТРИМУЙ БІЛЬШЕ','5% бонусами після статусу «Отримано»','ДЕТАЛІ','/profile','bonus',2
     WHERE NOT EXISTS(SELECT 1 FROM banners WHERE kind='bonus')`);
   // Attach the provided three artworks to the existing demo hero if it has not been customized.
   await pool.query(`UPDATE banners SET image_url='/banners/main.webp' WHERE kind='hero' AND title='БІЛЬШЕ НІЖ ПРОСТО ВЕЙП' AND image_url=''`);

@@ -58,6 +58,13 @@ CREATE TABLE IF NOT EXISTS bonus_ledger (
   id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id), order_id UUID REFERENCES orders(id),
   delta INTEGER NOT NULL, description TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- 1.2: previous completed orders remain historical; only newly received orders earn bonuses.
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check;
+ALTER TABLE orders ADD CONSTRAINT orders_status_check CHECK(status IN ('pending','confirmed','shipped','received','completed','cancelled'));
+CREATE INDEX IF NOT EXISTS idx_bonus_awarded_order ON bonus_ledger(order_id) WHERE delta>0;
+-- Update only the default demo subtitle. Hand-edited marketing copy remains untouched.
+UPDATE banners SET subtitle='5% бонусами після статусу «Отримано»'
+WHERE kind='bonus' AND subtitle='5% бонусами після виконаного замовлення';
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_variants_product ON variants(product_id);
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id,created_at DESC);

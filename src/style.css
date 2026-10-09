@@ -68,3 +68,30 @@ em{font-style:normal;color:#6a9dff}.button{display:inline-flex;align-items:cente
 .admin-brand-row img {width:46px;height:46px;object-fit:contain;border-radius:8px;background:#101829;padding:3px;}
 @media(max-width:360px){.carousel-control{height:24px;width:24px}.three-main .category-tile{min-height:124px}.brand-tile{min-height:94px}.brand-monogram{font-size:21px}}
 @media(prefers-reduced-motion:reduce){.carousel-banner-img{animation:none}}
+
+
+/* VAPORIA 1.2: taller carousel + category/brand outline navigation per reference. */
+.updated-home .hero-carousel { aspect-ratio:2.0 / 1; min-height:170px; max-height:290px; border-radius:12px; }
+.updated-home .carousel-banner-img { width:100%;height:100%;object-fit:fill;object-position:center; }
+.updated-home .carousel-control {height:34px;width:34px;}
+.updated-home .carousel-dots {bottom:8px;}
+.category-chips-home {display:flex;overflow-x:auto;gap:10px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;padding:3px 0 7px;margin:0 0 18px;}
+.category-chips-home::-webkit-scrollbar,.brand-filter-scroller::-webkit-scrollbar {display:none;}
+.category-outline-chip,.brand-filter-chip {flex-shrink:0;display:flex;justify-content:center;align-items:center;min-height:48px;padding:12px 17px;white-space:nowrap;border:1px solid #515767;border-radius:2px;background:linear-gradient(180deg,#1c2027,#14171c);color:#fff;font-size:12px;font-weight:800;line-height:1.25;scroll-snap-align:start;box-shadow:inset 0 1px rgba(255,255,255,.035);transition:background .16s,border-color .16s;}
+.category-outline-chip:hover,.brand-filter-chip:hover {border-color:#8a9ed0;}
+.category-outline-chip:active {background:#2d456c;}
+.brand-filter-scroller {display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;margin:0 -16px;padding:3px 16px 11px;}
+.brand-filter-chip {font-family:inherit;padding:12px 18px;background:#151a22;min-height:48px;font-size:12px;}
+.brand-filter-chip.selected {background:linear-gradient(115deg,#3a78ea,#5b9cff);border-color:#72a9ff;box-shadow:0 3px 15px #347bfa33;}
+.category-products-page .page-title {margin-bottom:13px;}
+.category-result-meta {color:#96a9c9;font-size:11px;margin:4px 0 13px;}
+.variants-editor {border:1px solid #304262;border-radius:12px;padding:12px;background:#0e1829;display:grid;gap:12px;}
+.variants-heading {display:grid;gap:5px;}.variants-heading b {font-size:13px;}.variants-heading small {font-size:10px;color:#9bb1cb;line-height:1.6;}
+.variant-editor-row {border:1px solid #344966;border-radius:9px;padding:11px;display:grid;gap:10px;background:#151f30;}
+.variant-editor-row-title {display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:800;}
+.variant-editor-row-title button {display:flex;align-items:center;gap:5px;border:0;background:none;color:#e4a0a8;font-size:10px;}
+.variant-editor-row-title button:disabled {opacity:.35;}
+.variant-editor-columns {display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:9px;}
+.variant-editor-row label {display:grid;gap:6px;font-size:10px;color:#b5c7e3;}
+.variant-editor-row input {min-width:0;width:100%;}
+@media(max-width:360px) {.category-outline-chip,.brand-filter-chip {font-size:11px;min-height:46px;padding:11px 14px;}}

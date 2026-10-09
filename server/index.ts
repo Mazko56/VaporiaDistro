@@ -11,6 +11,7 @@ import {seed} from './seed';
 import {migrate} from './migrate';
 import {inspectTelegramInitData,makeSession,readSession,calcDiscount,maxRedeemable} from './security';
 import {initBot,handleTelegramUpdate,notifyOrder,notifyStatus} from './bot';
+import {canTransitionOrder,earnedBonusPoints,shouldAwardOrder,type OrderStatus} from './orderLifecycle';
 
 class HttpError extends Error {constructor(public status:number,message:string){super(message);}}
 const app=express();
@@ -238,25 +239,24 @@ app.get('/api/admin/overview',adminOnly,wrap(async(_req,res)=>{
   (SELECT count(*) FROM orders WHERE status='pending')::int AS pending,
   (SELECT count(*) FROM products WHERE is_active)::int AS products,
   (SELECT count(*) FROM users)::int AS customers,
-  (SELECT COALESCE(sum(total),0) FROM orders WHERE status='completed')::int AS revenue`);
+  (SELECT COALESCE(sum(total),0) FROM orders WHERE status IN ('completed','received'))::int AS revenue`);
   res.json(r[0]);
 }));
 app.get('/api/admin/orders',adminOnly,wrap(async(req,res)=>{
   const status=typeof req.query.status==='string'?req.query.status:'';
-  const params:any[]=[],where=status && ['pending','confirmed','shipped','completed','cancelled'].includes(status)?' WHERE o.status=$1':'';
+  const params:any[]=[],where=status && ['pending','confirmed','shipped','completed','received','cancelled'].includes(status)?' WHERE o.status=$1':'';
   if(where)params.push(status);
   res.json(await query(`SELECT o.*,u.telegram_id,u.username,
    COALESCE((SELECT json_agg(json_build_object('product_name',i.product_name,'variant_label',i.variant_label,'quantity',i.quantity,'line_total',i.line_total) ORDER BY i.id) FROM order_items i WHERE i.order_id=o.id),'[]'::json) AS items
    FROM orders o JOIN users u ON u.id=o.user_id ${where} ORDER BY o.created_at DESC LIMIT 200`,params));
 }));
 app.patch('/api/admin/orders/:id/status',adminOnly,wrap(async(req,res)=>{
-  const {status}=validate(z.object({status:z.enum(['pending','confirmed','shipped','completed','cancelled'])}),req.body);
+  const {status}=validate(z.object({status:z.enum(['pending','confirmed','shipped','received','cancelled'])}),req.body);
   const result=await tx(async c=>{
     const old=(await c.query('SELECT o.*,u.telegram_id FROM orders o JOIN users u ON u.id=o.user_id WHERE o.id=$1 FOR UPDATE OF o',[req.params.id])).rows[0];
     if(!old)throw new HttpError(404,'Замовлення не знайдено');
     if(old.status===status)return old;
-    const allowed:Record<string,string[]>={pending:['confirmed','cancelled'],confirmed:['shipped','completed','cancelled'],shipped:['completed','cancelled'],completed:[],cancelled:[]};
-    if(!allowed[old.status]?.includes(status))throw new HttpError(400,'Неможливий перехід статусу');
+    if(!canTransitionOrder(old.status as OrderStatus,status))throw new HttpError(400,'Неможливий перехід статусу');
     if(status==='cancelled'){
       const items=(await c.query('SELECT * FROM order_items WHERE order_id=$1',[old.id])).rows;
       for(const i of items)if(i.variant_id)await c.query('UPDATE variants SET stock=stock+$1 WHERE id=$2',[i.quantity,i.variant_id]);
@@ -264,9 +264,9 @@ app.patch('/api/admin/orders/:id/status',adminOnly,wrap(async(req,res)=>{
       if(old.coupon_code)await c.query('UPDATE coupons SET uses=GREATEST(0,uses-1) WHERE code=$1',[old.coupon_code]);
     }
     let awarded=0;
-    if(status==='completed'){
-      awarded=Math.floor(old.total*config.bonusPercent/10000); // total is kopecks, balance is whole UAH
-      if(awarded>0){await c.query('UPDATE users SET bonus_balance=bonus_balance+$1 WHERE id=$2',[awarded,old.user_id]);await c.query('INSERT INTO bonus_ledger(user_id,order_id,delta,description) VALUES($1,$2,$3,$4)',[old.user_id,old.id,awarded,`Бонуси за замовлення №${old.number}`]);}
+    if(shouldAwardOrder(old.status as OrderStatus,status,Number(old.bonus_awarded))){
+      awarded=earnedBonusPoints(Number(old.total),config.bonusPercent);
+      if(awarded>0){await c.query('UPDATE users SET bonus_balance=bonus_balance+$1 WHERE id=$2',[awarded,old.user_id]);await c.query('INSERT INTO bonus_ledger(user_id,order_id,delta,description) VALUES($1,$2,$3,$4)',[old.user_id,old.id,awarded,`Бонуси за отримане замовлення №${old.number}`]);}
     }
     const updated=(await c.query('UPDATE orders SET status=$1,bonus_awarded=$2,updated_at=now() WHERE id=$3 RETURNING *',[status,awarded,old.id])).rows[0];
     return {...updated,telegram_id:old.telegram_id};

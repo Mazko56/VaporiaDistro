@@ -35,7 +35,7 @@ export async function notifyOrder(number:string,telegramId:string,totalKop:numbe
   if(config.adminChatId)try{await bot.api.sendMessage(config.adminChatId,admin);}catch(e){console.warn('Admin notification failed:',e);}
 }
 export async function notifyStatus(telegramId:string, number:string,status:string) {
-  const labels:Record<string,string>={confirmed:'підтверджено',shipped:'відправлено',completed:'виконано',cancelled:'скасовано'};
+  const labels:Record<string,string>={confirmed:'підтверджено',shipped:'відправлено',completed:'виконано',received:'отримано',cancelled:'скасовано'};
   if(!bot)return;
   try{await bot.api.sendMessage(telegramId,`📦 Замовлення №${number}: ${labels[status]||status}.`);}catch(e){console.warn('Status message failed:',e);}
 }
