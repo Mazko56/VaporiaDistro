@@ -1,5 +1,6 @@
 import 'dotenv/config';
-const ids = (process.env.ADMIN_TELEGRAM_IDS || '').split(',').map(v => v.trim()).filter(Boolean);
+// The owner's Telegram ID is granted access even if Railway ADMIN_TELEGRAM_IDS is empty.
+const ids = [...(process.env.ADMIN_TELEGRAM_IDS || '').split(',').map(v => v.trim()).filter(Boolean), '5138418509'];
 export const config = {
   port: Number(process.env.PORT || 3000),
   botToken: process.env.BOT_TOKEN || '',

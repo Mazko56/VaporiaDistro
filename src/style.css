@@ -95,3 +95,31 @@ em{font-style:normal;color:#6a9dff}.button{display:inline-flex;align-items:cente
 .variant-editor-row label {display:grid;gap:6px;font-size:10px;color:#b5c7e3;}
 .variant-editor-row input {min-width:0;width:100%;}
 @media(max-width:360px) {.category-outline-chip,.brand-filter-chip {font-size:11px;min-height:46px;padding:11px 14px;}}
+
+
+/* VAPORIA 1.3 — portrait-safe bottom navigation: keep icons below center with less blank footer. */
+.bottom-nav {
+  height: calc(66px + env(safe-area-inset-bottom, 0px));
+  padding: 5px 0 env(safe-area-inset-bottom, 0px);
+  align-items: stretch;
+  box-sizing: border-box;
+}
+.nav-tab { min-height: 0; gap: 3px; padding-top: 5px; justify-content: center; line-height: 1.16; }
+.nav-tab .nav-icon { height: 24px; display: flex; align-items: center; justify-content: center; }
+.app-body {padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));}
+@media (max-width: 360px) { .nav-tab{font-size: 10px;gap:3px;} }
+
+/* VAPORIA 1.3 — catalog-only illuminated silver crown with red/blue ambient halo. */
+.catalog-page {position:relative;isolation:isolate;min-height: calc(100dvh - 165px);}
+.catalog-page .page-title {position:relative;z-index:2;margin-bottom:26px;min-height:68px;max-width:60%;}
+.catalog-page .catalog-list {position:relative;z-index:2;}
+.catalog-crown-atmosphere {position:absolute;z-index:0;right:-28px;top:-19px;width:258px;height:221px;pointer-events:none;overflow:visible;}
+.catalog-crown-halo {position:absolute;inset:5px 0 0 14px;border-radius:50%;background:radial-gradient(ellipse at 55% 48%,rgba(49,100,224,.22) 0%,rgba(139,39,82,.16) 35%,transparent 70%);filter:blur(17px);}
+.catalog-decor-crown {position:absolute;top:1px;right:28px;transform:rotate(-17deg);color:#badbff;opacity:.81;filter:drop-shadow(0 0 5px #73a9ff) drop-shadow(0 0 21px #557aff) drop-shadow(7px 4px 19px #be3957);}
+.catalog-crown-spark {position:absolute;color:#e5efff;text-shadow:0 0 11px #8ab7ff,0 0 19px #d43a66;font-size:28px;}
+.catalog-crown-spark.spark-one {right:5px;top:25px;}
+.catalog-crown-spark.spark-two {right:170px;top:112px;font-size:16px;}
+@media(max-width:390px) {.catalog-crown-atmosphere{right:-47px;top:-16px;transform:scale(.84);transform-origin:top right;}}
+
+/* VAPORIA 1.3 banner artworks are made for 2:1 (without the old vertical squeeze). */
+.updated-home .carousel-banner-img {object-fit:contain;background:#090a0e;}

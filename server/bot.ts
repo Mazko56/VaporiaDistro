@@ -11,6 +11,20 @@ export async function initBot(){
   });
   bot.command('catalog',async ctx=>{await ctx.reply('Перейдіть у магазин та оберіть категорію:',{reply_markup:keyboard});});
   bot.command('myid',async ctx=>{await ctx.reply(`Ваш Telegram ID: ${ctx.from?.id||'не знайдено'}`);});
+  // Telegram's command menu supports only Latin characters, but the Ukrainian
+  // text command /админ is also accepted when sent as a normal message.
+  const adminAccess=async (ctx: any)=>{
+    if(String(ctx.from?.id)!=='5138418509') {
+      await ctx.reply('⛔ Цей розділ доступний лише адміністратору.');
+      return;
+    }
+    if(!url){await ctx.reply('Адмінпанель поки недоступна: PUBLIC_URL не налаштовано.');return;}
+    await ctx.reply('👑 Адмінпанель VAPORIA DISTRO',{
+      reply_markup:new InlineKeyboard().webApp('🔐 Відкрити адмінпанель',`${url}/admin`)
+    });
+  };
+  bot.command('admin',adminAccess);
+  bot.hears(/^\/админ(?:@[a-zA-Z0-9_]+)?(?:\s|$)/iu,adminAccess);
   bot.command('help',async ctx=>{await ctx.reply('Команди: /start — відкрити магазин, /catalog — каталог. Питання щодо замовлень вирішує менеджер магазину.');});
   bot.catch(err=>console.error('Bot update error:',err.message));
   // grammY must load bot info via getMe() before handleUpdate() can process webhooks.
@@ -20,6 +34,13 @@ export async function initBot(){
     await bot.api.setWebhook(`${url}/api/telegram/webhook`,{secret_token:config.webhookSecret,allowed_updates:['message','callback_query']});
     await bot.api.setChatMenuButton({menu_button:{type:'web_app',text:'VAPORIA DISTRO',web_app:{url}}});
     await bot.api.setMyCommands([{command:'start',description:'Відкрити магазин'},{command:'catalog',description:'Каталог'},{command:'help',description:'Допомога'},{command:'myid',description:'Дізнатись мій Telegram ID'}]);
+    // Add /admin only to the owner's private chat command menu; /админ
+    // remains supported as plain text because Telegram menu rejects Cyrillic commands.
+    try {
+      await bot.api.setMyCommands([{command:'start',description:'Відкрити магазин'},{command:'admin',description:'Адмінпанель'}],{
+        scope:{type:'chat',chat_id:5138418509}
+      });
+    } catch (error) { console.warn('Admin chat commands not set yet (owner may need to press /start):',error); }
     console.log('Telegram webhook and menu button configured');
   }
 }

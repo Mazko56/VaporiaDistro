@@ -86,3 +86,9 @@ CREATE TABLE IF NOT EXISTS media_assets (
   content BYTEA NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_brands_order ON brands(sort_order,id);
+
+-- VAPORIA 1.3: switch only old bundled banner paths to correctly proportioned 2:1 artwork.
+-- Uploaded/custom banner images are never overwritten.
+UPDATE banners SET image_url='/banners/main-v13.webp' WHERE image_url='/banners/main.webp';
+UPDATE banners SET image_url='/banners/bonus-v13.webp' WHERE image_url='/banners/bonus.webp';
+UPDATE banners SET image_url='/banners/delivery-v13.webp' WHERE image_url='/banners/delivery.webp';

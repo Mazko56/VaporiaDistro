@@ -1,6 +1,6 @@
 {
   "name": "vaporia-distro-telegram-miniapp",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "description": "Vaporia Distro Telegram Mini App + Bot + PostgreSQL for Railway",
   "engines": {"node": ">=20.11"},

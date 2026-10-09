@@ -46,12 +46,12 @@ export async function seed(){
     SELECT 'VAPORIA BONUS','КУПУЙ — НАКОПИЧУЙ — ОТРИМУЙ БІЛЬШЕ','5% бонусами після статусу «Отримано»','ДЕТАЛІ','/profile','bonus',2
     WHERE NOT EXISTS(SELECT 1 FROM banners WHERE kind='bonus')`);
   // Attach the provided three artworks to the existing demo hero if it has not been customized.
-  await pool.query(`UPDATE banners SET image_url='/banners/main.webp' WHERE kind='hero' AND title='БІЛЬШЕ НІЖ ПРОСТО ВЕЙП' AND image_url=''`);
+  await pool.query(`UPDATE banners SET image_url='/banners/main-v13.webp' WHERE kind='hero' AND title='БІЛЬШЕ НІЖ ПРОСТО ВЕЙП' AND image_url=''`);
   await pool.query(`INSERT INTO banners(eyebrow,title,subtitle,image_url,button_text,button_link,kind,sort_order)
-    SELECT 'VAPORIA • BONUS SLIDE','VAPORIA BONUS','Бонусна програма', '/banners/bonus.webp','МОЇ БОНУСИ','/bonuses','hero',2
+    SELECT 'VAPORIA • BONUS SLIDE','VAPORIA BONUS','Бонусна програма', '/banners/bonus-v13.webp','МОЇ БОНУСИ','/bonuses','hero',2
     WHERE NOT EXISTS(SELECT 1 FROM banners WHERE eyebrow='VAPORIA • BONUS SLIDE')`);
   await pool.query(`INSERT INTO banners(eyebrow,title,subtitle,image_url,button_text,button_link,kind,sort_order)
-    SELECT 'VAPORIA • DELIVERY SLIDE','ЗАМОВЛЯЙ — МИ ДОСТАВИМО','Доставка та оплата', '/banners/delivery.webp','ДО КАТАЛОГУ','/catalog','hero',3
+    SELECT 'VAPORIA • DELIVERY SLIDE','ЗАМОВЛЯЙ — МИ ДОСТАВИМО','Доставка та оплата', '/banners/delivery-v13.webp','ДО КАТАЛОГУ','/catalog','hero',3
     WHERE NOT EXISTS(SELECT 1 FROM banners WHERE eyebrow='VAPORIA • DELIVERY SLIDE')`);
   await pool.query(`INSERT INTO coupons(code,kind,value,min_subtotal,max_uses) VALUES('WELCOME5','percent',5,30000,100) ON CONFLICT(code) DO NOTHING`);
   console.log('Demo catalog initialized (existing edits preserved)');
