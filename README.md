@@ -124,3 +124,9 @@ node scripts/check-live.mjs https://ВАШ-ДОМЕН.up.railway.app
 4. Для бекапів **`docs/BACKUP.md`**.
 
 **Не комітьте `.env`, токен бота, ключі, реальні контакти покупців або дампи БД у Git.**
+
+## Telegram-бот працює, але Mini App повідомляє про невірний підпис
+
+Після версії виправлення бот виконує `await bot.init()` перед прийманням webhook-оновлень. У логах після запуску має бути рядок `Telegram bot initialized as @ВАШ_БОТ`. Переконайтесь, що це саме бот, у якому відкривається Mini App (наприклад, `@vaporiadistro_bot`). Якщо ім’я інше, неправильний `BOT_TOKEN` в Railway.
+
+У разі помилки Telegram-авторизації в логах з'явиться лише код `signature_mismatch`, `expired`, `future_date` або `invalid_format` — сам токен, хеш та initData не виводяться. `signature_mismatch` найчастіше означає, що Mini App відкрито через іншого бота, ніж той, чиї дані записані в `BOT_TOKEN`. `expired` означає, що потрібно **повністю закрити** Mini App у Telegram і запустити його з меню бота повторно. Не вимикайте перевірку HMAC та не вмикайте `DEV_AUTH_ENABLED` на Railway.

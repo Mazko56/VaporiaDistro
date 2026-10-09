@@ -1,4 +1,4 @@
-import {Bot, InlineKeyboard, Keyboard} from 'grammy';
+import {Bot, InlineKeyboard} from 'grammy';
 import {config} from './config';
 let bot:Bot | undefined;
 export async function initBot(){
@@ -13,6 +13,9 @@ export async function initBot(){
   bot.command('myid',async ctx=>{await ctx.reply(`Ваш Telegram ID: ${ctx.from?.id||'не знайдено'}`);});
   bot.command('help',async ctx=>{await ctx.reply('Команди: /start — відкрити магазин, /catalog — каталог. Питання щодо замовлень вирішує менеджер магазину.');});
   bot.catch(err=>console.error('Bot update error:',err.message));
+  // grammY must load bot info via getMe() before handleUpdate() can process webhooks.
+  await bot.init();
+  console.log(`Telegram bot initialized as @${bot.botInfo.username}`);
   if(url){
     await bot.api.setWebhook(`${url}/api/telegram/webhook`,{secret_token:config.webhookSecret,allowed_updates:['message','callback_query']});
     await bot.api.setChatMenuButton({menu_button:{type:'web_app',text:'VAPORIA DISTRO',web_app:{url}}});
@@ -20,7 +23,10 @@ export async function initBot(){
     console.log('Telegram webhook and menu button configured');
   }
 }
-export async function handleTelegramUpdate(update:unknown) {if(bot)await bot.handleUpdate(update as any);}
+export async function handleTelegramUpdate(update:unknown) {
+  if(!bot)throw new Error('Telegram bot is not ready; update will be retried by Telegram');
+  await bot.handleUpdate(update as any);
+}
 export async function notifyOrder(number:string,telegramId:string,totalKop:number) {
   if(!bot)return;
   const message=`✅ Замовлення №${number} прийнято!\nСума: ${(totalKop/100).toFixed(2)} ₴.\nОчікуйте підтвердження менеджера.`;

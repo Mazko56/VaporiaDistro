@@ -9,7 +9,7 @@ import {config,validateConfig} from './config';
 import {pool,query,tx} from './db';
 import {seed} from './seed';
 import {migrate} from './migrate';
-import {validateTelegramInitData,makeSession,readSession,calcDiscount,maxRedeemable} from './security';
+import {inspectTelegramInitData,makeSession,readSession,calcDiscount,maxRedeemable} from './security';
 import {initBot,handleTelegramUpdate,notifyOrder,notifyStatus} from './bot';
 
 class HttpError extends Error {constructor(public status:number,message:string){super(message);}}
@@ -46,8 +46,16 @@ app.get('/api/config',(_req,res)=>res.json({brand:process.env.STORE_NAME || 'VAP
 const authLimiter=rateLimit({windowMs:60_000,limit:20,standardHeaders:'draft-7',legacyHeaders:false});
 app.post('/api/auth/telegram',authLimiter,wrap(async(req,res)=>{
   const input=validate(z.object({initData:z.string().min(1).max(16384)}),req.body);
-  const tg=validateTelegramInitData(input.initData,config.botToken);
-  if(!tg)throw new HttpError(401,'Помилка перевірки підпису Telegram або термін дії даних минув');
+  const check=inspectTelegramInitData(input.initData,config.botToken);
+  if(!check.user){
+    // Never log initData, its hash, users' personal information or the bot token.
+    console.warn(`Telegram Mini App authorization rejected: ${check.reason}`);
+    const message=check.reason==='expired' ? 'Дані Telegram застаріли. Закрийте Mini App та відкрийте з бота знову.' :
+      check.reason==='signature_mismatch' ? 'Підпис Telegram не збігається. Перевірте BOT_TOKEN і бота, через якого відкрито Mini App.' :
+      'Помилка перевірки Telegram. Закрийте Mini App та повторно відкрийте з бота.';
+    throw new HttpError(401,message);
+  }
+  const tg=check.user;
   const roles=config.adminIds.has(tg.id)?'admin':'customer';
   await pool.query(`INSERT INTO users(telegram_id,username,first_name,photo_url,role) VALUES($1,$2,$3,$4,$5)
     ON CONFLICT(telegram_id) DO UPDATE SET username=EXCLUDED.username,first_name=EXCLUDED.first_name,photo_url=EXCLUDED.photo_url,role=EXCLUDED.role`,
