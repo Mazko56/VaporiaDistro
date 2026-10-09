@@ -49,9 +49,9 @@ app.post('/api/auth/telegram',authLimiter,wrap(async(req,res)=>{
   const check=inspectTelegramInitData(input.initData,config.botToken);
   if(!check.user){
     // Never log initData, its hash, users' personal information or the bot token.
-    console.warn(`Telegram Mini App authorization rejected: ${check.reason}`);
+    console.warn(`Telegram Mini App authorization rejected: ${check.reason}; ed25519_signature_present=${new URLSearchParams(input.initData).has('signature')}`);
     const message=check.reason==='expired' ? 'Дані Telegram застаріли. Закрийте Mini App та відкрийте з бота знову.' :
-      check.reason==='signature_mismatch' ? 'Підпис Telegram не збігається. Перевірте BOT_TOKEN і бота, через якого відкрито Mini App.' :
+      check.reason==='signature_mismatch' ? 'Не вдалося підтвердити підпис Telegram. Повністю закрийте Mini App та відкрийте його через @vaporiadistro_bot.' :
       'Помилка перевірки Telegram. Закрийте Mini App та повторно відкрийте з бота.';
     throw new HttpError(401,message);
   }
