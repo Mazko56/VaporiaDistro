@@ -2,11 +2,11 @@ import 'dotenv/config';
 import {pool} from './db';
 import {migrate} from './migrate';
 const categories=[
-  ['ridyny','Рідини','Преміальні смаки','droplets',1],
-  ['pod-systemy','POD-Системи','Сучасні пристрої','zap',2],
+  ['ridyny','Рідина-ароматизатори','Преміальні смаки','droplets',2],
+  ['pod-systemy','POD-Системи','Сучасні пристрої','zap',1],
   ['kartrydzhi','Картриджі','Для улюблених пристроїв','package',3],
-  ['nikotynovi-pauchi','Нікотинові паучі','Асортимент смаків','circle',4],
-  ['inbottle','INBOTTLE','Фірмова лінійка','crown',5]
+  ['nikotynovi-pauchi','Нікотинові паучі','Асортимент смаків','circle',40],
+  ['inbottle','INBOTTLE','Фірмова лінійка','crown',50]
 ] as const;
 const products=[
   {cat:'inbottle',slug:'inbottle-evo',name:'INBOTTLE EVO 30ml 50mg',brand:'INBOTTLE',price:35000,old:40000,badge:'ХІТ',color:'#a633ff',subtitle:'Серія EVO • 30 мл',desc:'Демонстраційна картка товару. Замініть опис, фото, наявність і характеристики на реальні в адмінпанелі.',variants:['Lemon lime 🍋','Cherry Sour Apple 🍒','Cafe Latte ☕','Blue razz ice 🧊','Mojito 🌿','Sour raspberry','Grape gummy 🍇']},
@@ -20,6 +20,14 @@ const products=[
 export async function seed(){
   for(const [slug,name,subtitle,icon,order] of categories){
     await pool.query(`INSERT INTO categories(slug,name,subtitle,icon,sort_order) VALUES($1,$2,$3,$4,$5) ON CONFLICT(slug) DO NOTHING`,[slug,name,subtitle,icon,order]);
+  }
+  // Only adjust the original seeded category label; do not overwrite edited categories.
+  await pool.query("UPDATE categories SET name='Рідина-ароматизатори', sort_order=2 WHERE slug='ridyny' AND name='Рідини'");
+  await pool.query("UPDATE categories SET sort_order=1 WHERE slug='pod-systemy' AND sort_order=2");
+  const brandNames = ['CHASER','HYPE','MOOD','DUCK','PUNCH','LUCKY','IN BOTTLE','ELFLIQ','ELYZIUM LAB','OCTOLAB','VAPORESSO','OXVA','VOOPOO'];
+  for (const [i,name] of brandNames.entries()) {
+    const slug=name.toLowerCase().replace(/\s+/g,'-');
+    await pool.query('INSERT INTO brands(slug,name,sort_order) VALUES($1,$2,$3) ON CONFLICT(slug) DO NOTHING',[slug,name,i+1]);
   }
   for(const p of products){
     const cat=(await pool.query('SELECT id FROM categories WHERE slug=$1',[p.cat])).rows[0];
@@ -35,6 +43,14 @@ export async function seed(){
   await pool.query(`INSERT INTO banners(eyebrow,title,subtitle,button_text,button_link,kind,sort_order)
     SELECT 'VAPORIA BONUS','КУПУЙ — НАКОПИЧУЙ — ОТРИМУЙ БІЛЬШЕ','5% бонусами після виконаного замовлення','ДЕТАЛІ','/profile','bonus',2
     WHERE NOT EXISTS(SELECT 1 FROM banners WHERE kind='bonus')`);
+  // Attach the provided three artworks to the existing demo hero if it has not been customized.
+  await pool.query(`UPDATE banners SET image_url='/banners/main.webp' WHERE kind='hero' AND title='БІЛЬШЕ НІЖ ПРОСТО ВЕЙП' AND image_url=''`);
+  await pool.query(`INSERT INTO banners(eyebrow,title,subtitle,image_url,button_text,button_link,kind,sort_order)
+    SELECT 'VAPORIA • BONUS SLIDE','VAPORIA BONUS','Бонусна програма', '/banners/bonus.webp','МОЇ БОНУСИ','/bonuses','hero',2
+    WHERE NOT EXISTS(SELECT 1 FROM banners WHERE eyebrow='VAPORIA • BONUS SLIDE')`);
+  await pool.query(`INSERT INTO banners(eyebrow,title,subtitle,image_url,button_text,button_link,kind,sort_order)
+    SELECT 'VAPORIA • DELIVERY SLIDE','ЗАМОВЛЯЙ — МИ ДОСТАВИМО','Доставка та оплата', '/banners/delivery.webp','ДО КАТАЛОГУ','/catalog','hero',3
+    WHERE NOT EXISTS(SELECT 1 FROM banners WHERE eyebrow='VAPORIA • DELIVERY SLIDE')`);
   await pool.query(`INSERT INTO coupons(code,kind,value,min_subtotal,max_uses) VALUES('WELCOME5','percent',5,30000,100) ON CONFLICT(code) DO NOTHING`);
   console.log('Demo catalog initialized (existing edits preserved)');
 }

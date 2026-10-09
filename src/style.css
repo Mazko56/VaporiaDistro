@@ -20,3 +20,51 @@ em{font-style:normal;color:#6a9dff}.button{display:inline-flex;align-items:cente
 @media(min-width:650px){.app-shell{margin:24px auto;border:1px solid #2f3c5d;border-radius:20px;min-height:calc(100dvh - 48px);overflow:clip}.app-header{top:0;border-radius:20px 20px 0 0}.bottom-nav{bottom:0;border:1px solid #2f3c5d;border-radius:15px 15px 0 0}body:before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(110deg,transparent 0 80px,#ffffff04 81px 82px);pointer-events:none}}@media(max-width:360px){.app-body{padding-left:12px;padding-right:12px}.hero-slider{padding:17px 14px}.hero-slider h2{font-size:20px}.product-visual{height:155px}.product-card-info{padding:10px 8px}.category-tile b{font-size:9px}.header-brand{font-size:13px}}
 
 .banner-image-bg{position:absolute;inset:0;z-index:-1;background-size:cover;background-position:center;opacity:.38;filter:saturate(1.2)}.catalog-image-bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.18}.checkout-warning{font-size:10px;text-align:center;color:#96a6c3;line-height:1.6;margin:12px 0 0}
+
+/* VAPORIA 1.1 — precise homepage changes; other page designs remain unchanged. */
+.updated-home { margin-top:-12px; }
+.hero-carousel { width:100%; aspect-ratio:3.96/1; position:relative; border-radius:13px; overflow:hidden; background:#08090c; border:1px solid #4d4046; box-shadow:0 9px 28px #0009; isolation:isolate; touch-action:pan-y; }
+.carousel-banner-link { display:block; width:100%; height:100%; position:relative; }
+.carousel-banner-img { display:block; width:100%; height:100%; object-fit:contain; object-position:center; animation:banner-reveal .35s ease-out both; }
+.carousel-text-slide { padding:10px 50px; height:100%; display:flex; flex-direction:column;justify-content:center; gap:4px; background:radial-gradient(circle at 90% 0,#7f203a80,transparent 55%),#121216; }
+.carousel-text-slide span { font-size:9px; letter-spacing:.16em; color:#e8b8b8; }
+.carousel-text-slide strong { font:900 clamp(13px,4vw,21px)/1.13 Unbounded,Manrope; }
+.carousel-text-slide small { color:#d5c4cb; font-size:10px; }
+.carousel-control { position:absolute; top:50%; transform:translateY(-50%); background:#09090cb8; border:1px solid #d8d8de75; border-radius:50%; color:#fff; width:28px; height:28px; display:grid;place-items:center; z-index:2; padding:0; }
+.carousel-control.previous { left:5px; } .carousel-control.next { right:5px; }
+.carousel-dots { position:absolute;bottom:4px;left:50%;transform:translateX(-50%);display:flex;gap:5px;background:#050507ba;padding:3px 6px;border-radius:99px; }
+.carousel-dots button { height:4px;width:10px;border:0;border-radius:6px;background:#a3a3a7;padding:0;opacity:.8; }
+.carousel-dots button.current { width:20px; background:#fff;opacity:1; }
+.hero-fallback img { width:100%;height:100%;object-fit:contain; }
+@keyframes banner-reveal {from{opacity:.55}to{opacity:1}}
+.updated-home .trust-strip {margin:12px 0 20px;}
+.category-tiles.three-main {grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;}
+.three-main .category-tile {min-height:135px;padding:13px 8px 10px; justify-content:space-between; isolation:isolate;align-items:center;text-align:center;}
+.three-main .category-tile b {text-transform:uppercase; font-size:clamp(8px,2.6vw,11px);letter-spacing:-.02em;line-height:1.4;overflow-wrap:anywhere;position:relative;z-index:1;}
+.three-main .tile-icon {position:relative;z-index:1;}
+.three-main .category-tile>svg {position:relative;z-index:1;}
+.tile-photo {position:absolute;inset:0;z-index:-1;background-position:center;background-size:cover;}
+.brand-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:24px;}
+.brand-tile {min-width:0;min-height:108px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:8px 7px;border:1px solid #35415a;border-radius:12px;background:radial-gradient(circle at 75% 0,#34385850,transparent 60%),linear-gradient(160deg,#192236,#0e1420);text-align:center;box-shadow:inset 0 1px #ffffff14;overflow:hidden;}
+.brand-tile:active {transform:scale(.98)}
+.brand-tile img {display:block;width:100%;height:54px;object-fit:contain;filter:drop-shadow(0 2px 8px #000a)}
+.brand-monogram {font:900 26px/1 Unbounded,Manrope;color:#eef2fa;letter-spacing:-.07em;text-shadow:0 3px #525964,0 8px 15px #05070d;}
+.brand-tile strong {font:800 clamp(9px,2.5vw,11px)/1.3 Manrope;letter-spacing:.02em;overflow-wrap:anywhere;}
+.brand-tile>svg {position:absolute;right:4px;top:5px;color:#788dac;opacity:.75;}
+.brand-detail-hero {height:135px; margin:-2px 0 15px;display:grid;place-items:center;border:1px solid #334461;border-radius:13px;background:radial-gradient(circle at 60% 30%,#232e4b,#0c1422);}
+.brand-detail-hero img {max-width:85%;height:105px;object-fit:contain;}
+/* Safe iPhone bottom clearance; menu remains tappable above the home indicator. */
+.app-body {padding-bottom:calc(150px + env(safe-area-inset-bottom, 0px));}
+.bottom-nav {height:calc(87px + env(safe-area-inset-bottom, 0px));padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px));align-items:center;}
+.nav-tab {min-height:62px;}
+/* Admin image upload fields */
+.photo-admin-field {display:flex;flex-direction:column;gap:9px;margin:9px 0 13px;}
+.photo-admin-field>label {display:flex;flex-direction:column;gap:7px;}
+.photo-input-row {display:flex;gap:10px;align-items:center;}
+.photo-upload-btn {display:inline-flex!important;align-items:center;justify-content:center;flex-direction:row!important;gap:9px;border:1px solid #6273a7;background:#1d3053;color:#e4efff;min-height:43px;padding:9px 13px;border-radius:9px;font-size:11px;font-weight:800;cursor:pointer;width:fit-content;}
+.photo-upload-btn input[type=file] {position:absolute!important;width:1px!important;height:1px!important;opacity:0;pointer-events:none;}
+.photo-preview {width:80px;height:65px;object-fit:contain;border-radius:8px;border:1px solid #536487;background:#0c1120;}
+.photo-admin-field>small {font-size:10px;line-height:1.5;color:#91a2bd;}
+.admin-brand-row img {width:46px;height:46px;object-fit:contain;border-radius:8px;background:#101829;padding:3px;}
+@media(max-width:360px){.carousel-control{height:24px;width:24px}.three-main .category-tile{min-height:124px}.brand-tile{min-height:94px}.brand-monogram{font-size:21px}}
+@media(prefers-reduced-motion:reduce){.carousel-banner-img{animation:none}}

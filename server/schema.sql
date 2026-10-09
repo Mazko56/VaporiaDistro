@@ -66,3 +66,16 @@ CREATE INDEX IF NOT EXISTS idx_bonus_user ON bonus_ledger(user_id,created_at DES
 
 -- Safe additive migration for existing databases created before age verification was added.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS age_verified BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Version 1.1: manufacturer directory and persistent media (no existing data removed).
+CREATE TABLE IF NOT EXISTS brands (
+  id SERIAL PRIMARY KEY, slug TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
+  image_url TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+CREATE TABLE IF NOT EXISTS media_assets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  mime_type TEXT NOT NULL CHECK(mime_type IN ('image/jpeg','image/png','image/webp')),
+  content BYTEA NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_brands_order ON brands(sort_order,id);

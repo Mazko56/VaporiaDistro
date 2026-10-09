@@ -42,6 +42,17 @@ app.post('/api/telegram/webhook',wrap(async(req,res)=>{
   await handleTelegramUpdate(req.body);res.json({ok:true});
 }));
 app.use('/api',patchGuard);
+// Files are uploaded as image bytes and saved in PostgreSQL so Railway redeploys do not erase them.
+app.get('/api/media/:id',wrap(async(req,res)=>{
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id)) throw new HttpError(404,'Фото не знайдено');
+  const asset=(await query('SELECT mime_type,content FROM media_assets WHERE id=$1',[req.params.id]))[0];
+  if(!asset)throw new HttpError(404,'Фото не знайдено');
+  res.set('Content-Type',asset.mime_type);
+  res.set('Cache-Control','public, max-age=31536000, immutable');
+  res.set('X-Content-Type-Options','nosniff');
+  res.send(asset.content);
+}));
+
 app.get('/api/config',(_req,res)=>res.json({brand:process.env.STORE_NAME || 'VAPORIA DISTRO',bonusPercent:config.bonusPercent,devAuth:config.devAuth,checkoutEnabled:config.checkoutEnabled}));
 const authLimiter=rateLimit({windowMs:60_000,limit:20,standardHeaders:'draft-7',legacyHeaders:false});
 app.post('/api/auth/telegram',authLimiter,wrap(async(req,res)=>{
@@ -80,13 +91,16 @@ const catalogProduct=`SELECT p.*,c.name AS category_name,c.slug AS category_slug
   COALESCE((SELECT json_agg(json_build_object('id',v.id,'label',v.label,'sku',v.sku,'stock',v.stock,'price_override',v.price_override,'is_active',v.is_active) ORDER BY v.id) FROM variants v WHERE v.product_id=p.id AND v.is_active), '[]'::json) AS variants
   FROM products p JOIN categories c ON p.category_id=c.id`;
 app.get('/api/categories',wrap(async(_req,res)=>res.json(await query('SELECT * FROM categories WHERE is_active=true ORDER BY sort_order,id'))));
+app.get('/api/brands',wrap(async(_req,res)=>res.json(await query('SELECT * FROM brands WHERE is_active=true ORDER BY sort_order,id'))));
 app.get('/api/banners',wrap(async(_req,res)=>res.json(await query('SELECT * FROM banners WHERE is_active=true ORDER BY sort_order,id'))));
 app.get('/api/products',wrap(async(req,res)=>{
   const category=typeof req.query.category==='string'?req.query.category.slice(0,80):'';
   const search=typeof req.query.search==='string'?req.query.search.slice(0,90):'';
+  const brand=typeof req.query.brand==='string'?req.query.brand.slice(0,100):'';
   const params:any[]=[]; let where=' WHERE p.is_active=true AND c.is_active=true';
   if(category){params.push(category);where+=` AND c.slug=$${params.length}`;}
   if(search){params.push(`%${search}%`);where+=` AND (p.name ILIKE $${params.length} OR p.brand ILIKE $${params.length} OR p.subtitle ILIKE $${params.length})`;}
+  if(brand){params.push(brand);where+=` AND REPLACE(LOWER(TRIM(p.brand)),' ','')=REPLACE(LOWER(TRIM($${params.length})),' ','')`;}
   res.json(await query(`${catalogProduct}${where} ORDER BY p.created_at DESC,p.id DESC LIMIT 100`,params));
 }));
 app.get('/api/products/:slug',wrap(async(req,res)=>{
@@ -189,10 +203,36 @@ app.get('/api/me/orders',userGuard,wrap(async(_req,res)=>{
 }));
 app.get('/api/me/bonuses',userGuard,wrap(async(_req,res)=>res.json(await query('SELECT id,delta,description,created_at FROM bonus_ledger WHERE user_id=$1 ORDER BY id DESC LIMIT 100',[getUser(res).id]))));
 // --- ADMIN ---
+
 const adminOnly=[userGuard,(req:Request,res:Response,next:NextFunction)=>{
   if(config.adminIds.has(String(getUser(res).telegram_id)) || (config.devAuth && String(getUser(res).telegram_id)==='999000111'))next();
   else next(new HttpError(403,'Доступ заборонено'));
 }];
+// Uploaded image content is checked by MIME + file signature, not client filename.
+const mediaParser=express.raw({type:['image/png','image/jpeg','image/webp'],limit:'4mb'});
+app.post('/api/admin/media',adminOnly,mediaParser,wrap(async(req,res)=>{
+  const mime=(req.get('content-type')||'').split(';')[0].trim().toLowerCase();
+  const body=req.body as Buffer;
+  if(!Buffer.isBuffer(body)||body.length<24||body.length>4*1024*1024)throw new HttpError(400,'Фото: лише PNG, JPG, WEBP до 4 МБ');
+  const png=mime==='image/png' && body.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+  const jpeg=mime==='image/jpeg' && body[0]===255 && body[1]===216 && body[2]===255;
+  const webp=mime==='image/webp' && body.toString('ascii',0,4)==='RIFF' && body.toString('ascii',8,12)==='WEBP';
+  if(!png&&!jpeg&&!webp)throw new HttpError(400,'Невірний формат зображення');
+  const item=(await query('INSERT INTO media_assets(mime_type,content) VALUES($1,$2) RETURNING id',[mime,body]))[0];
+  res.status(201).json({url:`/api/media/${item.id}`});
+}));
+const brandSchema=z.object({slug:z.string().regex(/^[a-z0-9-]+$/).min(2).max(100),name:z.string().trim().min(2).max(100),image_url:z.string().max(600).default(''),sort_order:z.number().int().default(0),is_active:z.boolean().default(true)});
+app.get('/api/admin/brands',adminOnly,wrap(async(_req,res)=>res.json(await query('SELECT * FROM brands ORDER BY sort_order,id'))));
+app.post('/api/admin/brands',adminOnly,wrap(async(req,res)=>{
+  const b=validate(brandSchema,req.body);
+  res.status(201).json((await query('INSERT INTO brands(slug,name,image_url,sort_order,is_active) VALUES($1,$2,$3,$4,$5) RETURNING *',Object.values(b)))[0]);
+}));
+app.patch('/api/admin/brands/:id',adminOnly,wrap(async(req,res)=>{
+  const b=validate(brandSchema,req.body);
+  const result=await query('UPDATE brands SET slug=$1,name=$2,image_url=$3,sort_order=$4,is_active=$5 WHERE id=$6 RETURNING *',[...Object.values(b),req.params.id]);
+  if(!result.length)throw new HttpError(404,'Виробника не знайдено');
+  res.json(result[0]);
+}));
 app.get('/api/admin/overview',adminOnly,wrap(async(_req,res)=>{
   const r=await query(`SELECT (SELECT count(*) FROM orders)::int AS orders,
   (SELECT count(*) FROM orders WHERE status='pending')::int AS pending,

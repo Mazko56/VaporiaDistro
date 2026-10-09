@@ -9,3 +9,5 @@ export type Order={id:string;number:string;status:string;customer_name:string;ph
 export type Coupon={id:number;code:string;kind:'percent'|'fixed';value:number;min_subtotal:number;max_uses:number|null;uses:number;is_active:boolean};
 export const price=(p:number)=>new Intl.NumberFormat('uk-UA',{minimumFractionDigits:2,maximumFractionDigits:2}).format(p/100)+' ₴';
 export const statusTitle:Record<string,string>={pending:'Очікує',confirmed:'Підтверджено',shipped:'Відправлено',completed:'Виконано',cancelled:'Скасовано'};
+
+export type Brand={id:number;slug:string;name:string;image_url:string;sort_order:number;is_active:boolean};
