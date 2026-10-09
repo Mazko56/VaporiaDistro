@@ -58,6 +58,11 @@ CREATE TABLE IF NOT EXISTS bonus_ledger (
   id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id), order_id UUID REFERENCES orders(id),
   delta INTEGER NOT NULL, description TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- 1.4: add Ukrposhta as a delivery option; preserve every existing order and its delivery data.
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_delivery_method_check;
+ALTER TABLE orders ADD CONSTRAINT orders_delivery_method_check
+  CHECK (delivery_method IN ('nova_poshta','ukrposhta','pickup'));
+
 -- 1.2: previous completed orders remain historical; only newly received orders earn bonuses.
 ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check;
 ALTER TABLE orders ADD CONSTRAINT orders_status_check CHECK(status IN ('pending','confirmed','shipped','received','completed','cancelled'));

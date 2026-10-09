@@ -152,12 +152,12 @@ app.post('/api/coupon/check',userGuard,wrap(async(req,res)=>{
   if(!c||input.subtotal<c.min_subtotal)throw new HttpError(400,'Промокод недійсний або не виконана мінімальна сума');
   res.json({code:c.code,discount:calcDiscount(input.subtotal,c)});
 }));
-const checkoutSchema=z.object({request_id:z.string().uuid(),customer_name:z.string().trim().min(2).max(90),phone:z.string().trim().regex(/^\+?[0-9 ()-]{9,22}$/),delivery_method:z.enum(['nova_poshta','pickup']),city:z.string().trim().max(100),shipping_details:z.string().trim().max(200),payment_method:z.enum(['cod','manager']),comment:z.string().trim().max(800).default(''),coupon_code:z.string().trim().max(32).optional().default(''),bonus_used:z.number().int().nonnegative().default(0),age_agreed:z.literal(true)});
+const checkoutSchema=z.object({request_id:z.string().uuid(),customer_name:z.string().trim().min(2).max(90),phone:z.string().trim().regex(/^\+?[0-9 ()-]{9,22}$/),delivery_method:z.enum(['nova_poshta','ukrposhta','pickup']),city:z.string().trim().min(2).max(100),shipping_details:z.string().trim().min(1).max(200),payment_method:z.enum(['cod','manager']),comment:z.string().trim().max(800).default(''),coupon_code:z.string().trim().max(32).optional().default(''),bonus_used:z.number().int().nonnegative().default(0),age_agreed:z.literal(true)});
 app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(async(req,res)=>{
   if(!config.checkoutEnabled)throw new HttpError(403,'Оформлення вимкнено до перевірки законодавчих вимог та підтвердження віку');
   const data=validate(checkoutSchema,req.body);const user=getUser(res);
-  if(data.delivery_method==='nova_poshta' && (!data.city || !data.shipping_details))throw new HttpError(400,'Вкажіть місто та відділення/адресу доставки');
-  if(data.delivery_method==='pickup' && !data.city)throw new HttpError(400,'Вкажіть місто самовивозу');
+  if (['nova_poshta','ukrposhta'].includes(data.delivery_method) && !data.shipping_details.trim())
+    throw new HttpError(400,'Вкажіть номер відділення або адресу доставки');
   const existing=await query('SELECT id,number,total FROM orders WHERE request_id=$1 AND user_id=$2',[data.request_id,user.id]);
   if(existing.length){res.json({ok:true,order:existing[0]});return;}
   const order=await tx(async c=>{
@@ -196,7 +196,7 @@ app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(asy
     return inserted;
   });
   res.status(201).json({ok:true,order});
-  void notifyOrder(String(order.number),String(user.telegram_id),Number(order.total));
+  void notifyOrder(String(order.number),String(user.telegram_id),Number(order.total),{deliveryMethod:data.delivery_method,city:data.city,branch:data.shipping_details,paymentMethod:data.payment_method,bonusUsed:data.bonus_used});
 }));
 app.get('/api/me/orders',userGuard,wrap(async(_req,res)=>{
   const orders=await query(`SELECT o.*,COALESCE((SELECT json_agg(json_build_object('product_name',oi.product_name,'variant_label',oi.variant_label,'quantity',oi.quantity,'unit_price',oi.unit_price) ORDER BY oi.id) FROM order_items oi WHERE oi.order_id=o.id),'[]'::json) AS items
@@ -271,7 +271,7 @@ app.patch('/api/admin/orders/:id/status',adminOnly,wrap(async(req,res)=>{
     const updated=(await c.query('UPDATE orders SET status=$1,bonus_awarded=$2,updated_at=now() WHERE id=$3 RETURNING *',[status,awarded,old.id])).rows[0];
     return {...updated,telegram_id:old.telegram_id};
   });
-  res.json(result);void notifyStatus(String(result.telegram_id),String(result.number),status);
+  res.json(result);void notifyStatus(String(result.telegram_id),String(result.number),status,Number(result.bonus_awarded||0));
 }));
 app.get('/api/admin/categories',adminOnly,wrap(async(_req,res)=>res.json(await query('SELECT * FROM categories ORDER BY sort_order,id'))));
 const categorySchema=z.object({slug:z.string().min(2).max(80).regex(/^[a-z0-9-]+$/),name:z.string().trim().min(2).max(120),subtitle:z.string().max(160).default(''),icon:z.string().max(32).default('box'),image_url:z.string().max(600).default(''),sort_order:z.number().int().default(0),is_active:z.boolean().default(true)});

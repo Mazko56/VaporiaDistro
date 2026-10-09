@@ -129,3 +129,16 @@ em{font-style:normal;color:#6a9dff}.button{display:inline-flex;align-items:cente
 .admin-shell .bottom-nav,
 .admin-shell .safe-footer {display:none;}
 .app-body-admin {padding-bottom:24px;}
+
+/* VAPORIA 1.4 — checkout and delivery clarity without changing storefront design. */
+.checkout-hint {font-size:12px;color:#a4b5d2;line-height:1.55;margin:4px 0 10px;}
+.carrier-options {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.carrier-options button {min-height:47px;padding:10px 8px;white-space:normal;}
+.checkout-disabled-notice {display:flex;align-items:flex-start;gap:12px;border-color:#5d5266;background:linear-gradient(110deg,#1b2036,#1c1731);padding:15px;margin:14px 0;}
+.checkout-disabled-notice svg {flex:0 0 auto;color:#9abbff;}
+.checkout-disabled-notice b {font-size:13px;}
+.checkout-disabled-notice p {color:#b3c3df;font-size:12px;line-height:1.55;margin:5px 0 0;}
+.bonus-max-btn {padding:10px 13px;font-size:12px;min-height:35px;width:100%;margin-top:7px;}
+.order-delivery-details {border-top:1px solid #37435b;margin-top:10px;padding-top:10px;}
+.order-delivery-details p {display:flex;align-items:flex-start;gap:7px;flex-wrap:wrap;margin:7px 0;font-size:12px;color:#b8c7df;line-height:1.45;}
+.order-delivery-details svg {color:#8eb2fa;flex-shrink:0;}

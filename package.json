@@ -1,9 +1,11 @@
 {
   "name": "vaporia-distro-telegram-miniapp",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Vaporia Distro Telegram Mini App + Bot + PostgreSQL for Railway",
-  "engines": {"node": ">=20.11"},
+  "engines": {
+    "node": ">=20.11"
+  },
   "scripts": {
     "dev": "concurrently -k \"tsx watch server/index.ts\" \"vite --host 0.0.0.0\"",
     "build": "vite build && tsc -p tsconfig.server.json",
