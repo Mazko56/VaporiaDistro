@@ -15,14 +15,15 @@ const moneyInput=(p:number)=>String(p/100);
 const kop=(s:string|number)=>Math.max(0,Math.round(Number(s||0)*100));
 
 function Shell({children}:{children:ReactNode}){
- const loc=useLocation(),{brand,cartCount,me}=useStore();const navigate=useNavigate();
+ const loc=useLocation(),{brand,cartCount}=useStore();const navigate=useNavigate();
+ const isAdminRoute=loc.pathname.startsWith('/admin');
  useEffect(()=>{window.scrollTo({top:0,behavior:'instant'});},[loc.pathname]);
  const tabs=[{path:'/',label:'Головна',icon:HomeIcon},{path:'/catalog',label:'Каталог',icon:Layers3},{path:'/search',label:'Пошук',icon:SearchIcon},{path:'/cart',label:'Кошик',icon:ShoppingCart},{path:'/profile',label:'Профіль',icon:UserRound}];
- return <div className="app-shell"><div className="ambient-glow"/>
+ return <div className={`app-shell ${isAdminRoute?'admin-shell':''}`}><div className="ambient-glow"/>
  <header className="app-header"><button className="icon-btn back-btn" aria-label="Назад" onClick={()=>loc.pathname==='/'?window.Telegram?.WebApp?.close():navigate(-1)}><ArrowLeft size={21}/></button><Link to="/" className="header-brand"><span className="small-crown"><Crown size={13}/></span>{brand}</Link><div className="header-tools"><Link to="/favorites" aria-label="Обране"><Heart size={20}/></Link><Link to="/cart" aria-label="Кошик"><ShoppingBag size={19}/>{cartCount>0&&<i className="badge-count">{cartCount}</i>}</Link></div></header>
- <div className="app-body">{children}</div>
- <nav className="bottom-nav" aria-label="Головне меню">{tabs.map(t=><NavLink key={t.path} to={t.path} end={t.path==='/'} className={({isActive})=>`nav-tab ${isActive?'active':''}`}><span className="nav-icon"><t.icon size={21} strokeWidth={1.8}/>{t.path==='/cart'&&cartCount>0&&<span className="mini-dot">{cartCount}</span>}</span><span>{t.label}</span></NavLink>)}</nav>
- <div className="safe-footer"/></div>;
+ <div className={`app-body ${isAdminRoute?'app-body-admin':''}`}>{children}</div>
+ {!isAdminRoute&&<nav className="bottom-nav" aria-label="Головне меню">{tabs.map(t=><NavLink key={t.path} to={t.path} end={t.path==='/'} className={({isActive})=>`nav-tab ${isActive?'active':''}`}><span className="nav-icon"><t.icon size={21} strokeWidth={1.8}/>{t.path==='/cart'&&cartCount>0&&<span className="mini-dot">{cartCount}</span>}</span><span>{t.label}</span></NavLink>)}</nav>}
+ {!isAdminRoute&&<div className="safe-footer"/>}</div>;
 }
 function PageTitle({children,subtitle}:{children:ReactNode;subtitle?:string}){return <div className="page-title"><h1>{children}</h1>{subtitle&&<p>{subtitle}</p>}</div>;}
 function Loading(){return <div className="loading-block"><span className="spin"/> Завантаження...</div>;}
