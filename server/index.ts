@@ -164,7 +164,6 @@ app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(asy
   const order=await tx(async c=>{
     const current=(await c.query('SELECT * FROM users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
     if(!current.age_confirmed)throw new HttpError(403,'Підтвердьте повноліття');
-    if(config.requireVerifiedAge && !current.age_verified)throw new HttpError(403,'Перед оформленням замовлення потрібно підтвердити вік у продавця.');
     const again=(await c.query('SELECT id,number,total FROM orders WHERE request_id=$1 AND user_id=$2',[data.request_id,user.id])).rows;
     if(again.length)return again[0];
     const lines=(await c.query(`SELECT ci.quantity,v.id AS variant_id,v.label,v.sku,v.stock,v.is_active,p.name,p.base_price,p.is_active AS product_active,
