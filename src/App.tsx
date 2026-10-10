@@ -14,6 +14,8 @@ function useFetch<T>(endpoint:string,deps:unknown[]=[]){const [data,setData]=use
 const notifyError=(err:unknown,notify:(s:string,t?:'error'|'ok')=>void)=>notify(err instanceof Error?err.message:'Сталася помилка','error');
 const moneyInput=(p:number)=>String(p/100);
 const kop=(s:string|number)=>Math.max(0,Math.round(Number(s||0)*100));
+// Display resistance only as a selectable variant, never in the product title.
+const displayProductName=(name:string)=>name.replace(/\s+(?:[0-9]+[.,][0-9]+|[0-9]+)\s*(?:Ω|ohm|ом(?:и|ів)?)\s*$/iu,'').trim();
 function Shell({children}:{children:ReactNode}){
  const loc=useLocation(),{brand,cartCount}=useStore();const navigate=useNavigate();
  const isAdminRoute=loc.pathname.startsWith('/admin');
@@ -43,7 +45,7 @@ function ProductCard({product,onChanged}:{product:Product;onChanged?:()=>void}){
  const {notify,refreshCart}=useStore(),[fav,setFav]=useState(false),[adding,setAdding]=useState(false);
  const add=async(e:MouseEvent)=>{e.preventDefault();e.stopPropagation();const v=product.variants.find(v=>v.is_active&&v.stock>0);if(!v)return notify('Товару немає в наявності','error');setAdding(true);try{await api('/cart',json('POST',{variant_id:v.id,quantity:1}));await refreshCart();notify('Додано до кошика');}catch(err){notifyError(err,notify);}finally{setAdding(false);}};
  const toggle=async(e:MouseEvent)=>{e.preventDefault();e.stopPropagation();try{const r=await api<{favorite:boolean}>(`/me/favorites/${product.id}`,json('POST'));setFav(r.favorite);onChanged?.();notify(r.favorite?'Додано в обране':'Прибрано з обраного');}catch(err){notifyError(err,notify);}};
- return <Link to={`/product/${product.slug}`} className="product-card"><div className="product-visual"><Art product={product}/>{product.badge&&<span className="product-label">{product.badge}</span>}<button className={`favorite-float ${fav?'is-fav':''}`} onClick={toggle} aria-label="В обране"><Heart size={17} fill={fav?'currentColor':'none'}/></button></div><div className="product-card-info"><span className="product-brand">{product.brand||'VAPORIA SELECTION'}</span><h3>{product.name}</h3><p>{product.subtitle}</p><div className="product-price"><div><strong>{price(product.base_price)}</strong>{product.compare_at_price&&<del>{price(product.compare_at_price)}</del>}</div><button onClick={add} disabled={adding||!product.variants.some(v=>v.stock>0)} aria-label="Додати в кошик"><ShoppingCart size={18}/></button></div></div></Link>;
+ return <Link to={`/product/${product.slug}`} className="product-card"><div className="product-visual"><Art product={product}/>{product.badge&&<span className="product-label">{product.badge}</span>}<button className={`favorite-float ${fav?'is-fav':''}`} onClick={toggle} aria-label="В обране"><Heart size={17} fill={fav?'currentColor':'none'}/></button></div><div className="product-card-info"><span className="product-brand">{product.brand||'VAPORIA SELECTION'}</span><h3>{displayProductName(product.name)}</h3><p>{product.subtitle}</p><div className="product-price"><div><strong>{price(product.base_price)}</strong>{product.compare_at_price&&<del>{price(product.compare_at_price)}</del>}</div><button onClick={add} disabled={adding||!product.variants.some(v=>v.stock>0)} aria-label="Додати в кошик"><ShoppingCart size={18}/></button></div></div></Link>;
 }
 const PRIMARY_CATEGORY_SLUGS=['pod-systemy','ridyny','kartrydzhi'];
 function HeroCarousel({banners}:{banners:Banner[]}){
@@ -60,7 +62,7 @@ function HeroCarousel({banners}:{banners:Banner[]}){
  </section>;
 }
 function Home(){
- const banners=useFetch<Banner[]>('/banners'),categories=useFetch<Category[]>('/categories'),products=useFetch<Product[]>('/products'),{me,bonusPercent}=useStore();
+ const banners=useFetch<Banner[]>('/banners'),categories=useFetch<Category[]>('/categories'),brands=useFetch<Brand[]>('/brands'),{me,bonusPercent}=useStore();
  const slides=(banners.data||[]).filter(b=>b.kind==='hero'),bonus=banners.data?.find(b=>b.kind==='bonus');
  const primary=PRIMARY_CATEGORY_SLUGS.map(slug=>(categories.data||[]).find(c=>c.slug===slug)).filter((c):c is Category=>Boolean(c));
  return <div className="home-page updated-home">
@@ -70,8 +72,8 @@ function Home(){
  <div className="category-chips-home" role="navigation" aria-label="Основні категорії товарів">{primary.map(c=><Link to={`/catalog/${c.slug}`} className="category-outline-chip" key={c.id}>{c.name}</Link>)}</div>
  <Link to={bonus?.button_link||'/bonuses'} className="bonus-banner">{bonus?.image_url&&<div className="banner-image-bg" style={{backgroundImage:`url(${bonus.image_url})`}}/>}<div className="bonus-orb"><Crown size={33}/></div><div><span>VAPORIA <b>CLUB</b> <Sparkles size={11}/></span><h3>{bonus?.title||'ТВОЇ ПОКУПКИ — ТВОЇ БОНУСИ'}</h3><p>{bonus?.subtitle||`Повертаємо ${bonusPercent}% бонусами`}</p><div className="bonus-link">ДЕТАЛЬНІШЕ <ArrowRight size={14}/></div></div></Link>
 
- <div className="section-heading"><div><span className="tiny-label">OUR FAVORITES</span><h2>Популярні <em>товари</em></h2></div><Link to="/catalog">Дивитись усі <ArrowRight size={16}/></Link></div>
- {products.loading?<Loading/>:<div className="product-grid">{(products.data||[]).slice(0,6).map(p=><ProductCard product={p} key={p.id}/>)}</div>}
+ <div className="section-heading"><div><span className="tiny-label">OUR BRANDS</span><h2>Популярні <em>виробники</em></h2></div></div>
+ {brands.loading?<Loading/>:<div className="brand-home-grid">{(brands.data||[]).filter(b=>b.is_active).map(b=><Link to={`/brand/${b.slug}`} className="brand-home-card" key={b.id} aria-label={`Товари ${b.name}`}><div className="brand-home-art">{b.image_url?<img src={b.image_url} alt={b.name} loading="lazy"/>:<Crown size={42} strokeWidth={1.2}/>}</div><strong>{b.name}</strong><span>Переглянути товари <ArrowRight size={13}/></span></Link>)}</div>}
  <div className="small-promo"><span><Gift size={24}/></span><div><b>Бонуси вже чекають!</b><p>{me?.bonus_balance||0} бонусів на вашому рахунку</p></div><Link to="/profile"><ArrowRight size={18}/></Link></div><div className="age-note">18+ • Інформація лише для повнолітніх. Дотримуйтеся місцевого законодавства.</div>
  </div>;
 }
@@ -99,7 +101,8 @@ function CategoryPage(){
  {products.length?<div className="product-grid">{products.map(p=><ProductCard product={p} key={p.id}/>)}</div>:<Empty title={selectedBrand?'У цього виробника поки немає товарів':'Наразі тут порожньо'} link="/catalog"/>}</>}
  </div>;
 }
-function BrandPage(){const {slug}=useParams(),{data:brands}=useFetch<Brand[]>('/brands'),{data:products,loading}=useFetch<Product[]>(`/products?brand=${encodeURIComponent((brands?.find(b=>b.slug===slug)?.name)||'')}`);
+function BrandPage(){const {slug}=useParams(),{data:brands}=useFetch<Brand[]>('/brands'),{data:allProducts,loading}=useFetch<Product[]>('/products');
+ const products=allProducts?.filter(p=>p.brand.toLocaleLowerCase('uk-UA').replace(/[^\p{L}\p{N}]/gu,'')===(brands?.find(b=>b.slug===slug)?.name||'').toLocaleLowerCase('uk-UA').replace(/[^\p{L}\p{N}]/gu,''));
  const current=brands?.find(b=>b.slug===slug);if(!brands)return <Loading/>;if(!current)return <Empty title="Виробника не знайдено" link="/" linkText="На головну"/>;return <div><PageTitle subtitle="Товари виробника">{current?.name||'Виробник'}</PageTitle>
  {current?.image_url&&<div className="brand-detail-hero"><img src={current.image_url} alt={current.name}/></div>}
  {loading?<Loading/>:products?.length?<div className="product-grid">{products.map(p=><ProductCard key={p.id} product={p}/>)}</div>:<Empty icon={Package} title="Поки немає товарів цього виробника" subtitle="Додайте товари з цією назвою бренду в адмінпанелі" link="/" linkText="На головну"/>}</div>;}
@@ -111,7 +114,7 @@ function ProductPage(){const {slug}=useParams(),{data:p,loading}=useFetch<Produc
  return <div className="product-page">{loading?<Loading/>:!p?<Empty title="Товар не знайдено" link="/catalog"/>:<>
  <div className="product-gallery"><div className="gallery-actions"><button onClick={()=>navigate(-1)}><ArrowLeft size={20}/></button><div><button aria-label="В обране" onClick={toggle}><Heart size={21} fill={fav?'currentColor':'none'}/></button><button aria-label="Поділитися" onClick={()=>{void navigator.clipboard?.writeText(location.href);notify('Посилання скопійовано');}}><UploadCloud size={20}/></button></div></div><Art product={{...p,image_url:selectedPhoto}} size="big"/>{p.badge&&<span className="gallery-badge">{p.badge}</span>}</div>
  <div className="photo-thumbs">{[p.image_url,...(p.gallery||[])].filter(Boolean).length?[p.image_url,...p.gallery].filter(Boolean).map((photo,i)=><button key={i} className={selectedPhoto===photo?'selected':''} onClick={()=>setSelectedPhoto(photo)}><img src={photo} alt={`Фото ${i+1}`}/></button>):<><div className="fake-thumb selected"><Zap size={20}/></div><div className="fake-thumb"><Crown size={20}/></div><div className="fake-thumb"><Sparkles size={20}/></div></>}</div>
- <div className="product-meta"><span className="eyebrow">{p.brand} / {p.category_name}</span><h1>{p.name}</h1><div className="rating-line"><Star size={14} fill="#ffc66b" color="#ffc66b"/><span>Варіанти на вибір</span><i/> <span>Наявність: {selected?.stock||0} шт.</span></div><div className="detail-price"><strong>{price(unit)}</strong>{p.compare_at_price&&<del>{price(p.compare_at_price)}</del>}</div></div>
+ <div className="product-meta"><span className="eyebrow">{p.brand} / {p.category_name}</span><h1>{displayProductName(p.name)}</h1><div className="rating-line"><Star size={14} fill="#ffc66b" color="#ffc66b"/><span>Варіанти на вибір</span><i/> <span>Наявність: {selected?.stock||0} шт.</span></div><div className="detail-price"><strong>{price(unit)}</strong>{p.compare_at_price&&<del>{price(p.compare_at_price)}</del>}</div></div>
  <div className="choices"><h3>Оберіть {p.category_slug==='pod-systemy'?'колір / комплектацію':'смак / варіант'}</h3><div className="variant-list">{p.variants.map(v=><button className={v.id===variant?'picked':''} disabled={!v.stock||!v.is_active} key={v.id} onClick={()=>{setVariant(v.id);setQty(1);}}>{v.label}{!v.stock&&<small>Немає</small>}</button>)}</div></div>
  <div className="qty-row"><div><b>Кількість</b><small>В наявності: {selected?.stock||0}</small></div><div className="stepper"><button disabled={qty<=1} onClick={()=>setQty(q=>Math.max(1,q-1))}><Minus size={16}/></button><strong>{qty}</strong><button disabled={qty>=(selected?.stock||0)} onClick={()=>setQty(q=>q+1)}><Plus size={16}/></button></div></div>
  <button className="button primary product-add" disabled={!selected?.stock||adding} onClick={()=>void add()}><ShoppingCart size={19}/> {adding?'ДОДАВАННЯ...':'ДОДАТИ В КОШИК'} <span>{price(unit*qty)}</span></button>
