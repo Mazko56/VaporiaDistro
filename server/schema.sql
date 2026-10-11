@@ -85,6 +85,8 @@ CREATE TABLE IF NOT EXISTS brands (
   image_url TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
+-- Version 1.7: independent wide manufacturer banner; existing icons are preserved.
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS banner_url TEXT NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS media_assets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   mime_type TEXT NOT NULL CHECK(mime_type IN ('image/jpeg','image/png','image/webp')),

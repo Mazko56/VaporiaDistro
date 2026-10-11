@@ -222,15 +222,15 @@ app.post('/api/admin/media',adminOnly,mediaParser,wrap(async(req,res)=>{
   const item=(await query('INSERT INTO media_assets(mime_type,content) VALUES($1,$2) RETURNING id',[mime,body]))[0];
   res.status(201).json({url:`/api/media/${item.id}`});
 }));
-const brandSchema=z.object({slug:z.string().regex(/^[a-z0-9-]+$/).min(2).max(100),name:z.string().trim().min(2).max(100),image_url:z.string().max(600).default(''),sort_order:z.number().int().default(0),is_active:z.boolean().default(true)});
+const brandSchema=z.object({slug:z.string().regex(/^[a-z0-9-]+$/).min(2).max(100),name:z.string().trim().min(2).max(100),image_url:z.string().max(600).default(''),banner_url:z.string().max(600).default(''),sort_order:z.number().int().default(0),is_active:z.boolean().default(true)});
 app.get('/api/admin/brands',adminOnly,wrap(async(_req,res)=>res.json(await query('SELECT * FROM brands ORDER BY sort_order,id'))));
 app.post('/api/admin/brands',adminOnly,wrap(async(req,res)=>{
   const b=validate(brandSchema,req.body);
-  res.status(201).json((await query('INSERT INTO brands(slug,name,image_url,sort_order,is_active) VALUES($1,$2,$3,$4,$5) RETURNING *',Object.values(b)))[0]);
+  res.status(201).json((await query('INSERT INTO brands(slug,name,image_url,banner_url,sort_order,is_active) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',Object.values(b)))[0]);
 }));
 app.patch('/api/admin/brands/:id',adminOnly,wrap(async(req,res)=>{
   const b=validate(brandSchema,req.body);
-  const result=await query('UPDATE brands SET slug=$1,name=$2,image_url=$3,sort_order=$4,is_active=$5 WHERE id=$6 RETURNING *',[...Object.values(b),req.params.id]);
+  const result=await query('UPDATE brands SET slug=$1,name=$2,image_url=$3,banner_url=$4,sort_order=$5,is_active=$6 WHERE id=$7 RETURNING *',[...Object.values(b),req.params.id]);
   if(!result.length)throw new HttpError(404,'Виробника не знайдено');
   res.json(result[0]);
 }));

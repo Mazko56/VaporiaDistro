@@ -12,4 +12,4 @@ export const statusTitle:Record<string,string>={pending:'Очікує',confirmed
 export const deliveryTitle:Record<string,string>={nova_poshta:'Нова пошта',ukrposhta:'Укрпошта',pickup:'Самовивіз'};
 export const paymentTitle:Record<string,string>={cod:'Накладений платіж',manager:'Узгодження з менеджером'};
 
-export type Brand={id:number;slug:string;name:string;image_url:string;sort_order:number;is_active:boolean};
+export type Brand={id:number;slug:string;name:string;image_url:string;banner_url:string;sort_order:number;is_active:boolean};

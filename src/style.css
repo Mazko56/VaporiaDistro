@@ -159,3 +159,7 @@ em{font-style:normal;color:#6a9dff}.button{display:inline-flex;align-items:cente
 .brand-home-art img{width:100%;height:100%;object-fit:cover;display:block;}
 .brand-home-card strong{font-size:12px;padding:12px 11px 3px;line-height:1.3;}
 .brand-home-card>span{display:flex;gap:6px;align-items:center;color:#9ab9f1;padding:2px 11px 12px;font-size:10px;}
+
+/* VAPORIA 1.7 — wide manufacturer artwork without changing home-page square icons. */
+.brand-detail-hero.has-wide-banner { height:auto;aspect-ratio:5 / 2;overflow:hidden;display:block; }
+.brand-detail-hero.has-wide-banner img { width:100%;height:100%;max-width:none;object-fit:cover;display:block; }
