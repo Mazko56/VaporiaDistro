@@ -42,34 +42,34 @@ export async function enrichCatalogV20(){
     // EVO
     await c.query(`UPDATE products
       SET name='In bottle Evo 30ml', brand='IN BOTTLE', subtitle='EVO • 30 мл',
-          description=$2, base_price=34900, compare_at_price=NULL,
+          description=$1, base_price=34900, compare_at_price=NULL,
           image_url='/catalog-import/inbottle-evo-v20.png', is_active=true
-      WHERE slug='inbottle-evo'`, ['inbottle-evo', evoDescription]);
+      WHERE slug='inbottle-evo'`, [evoDescription]);
     const evo = await c.query(`SELECT id FROM products WHERE slug='inbottle-evo'`);
     if (evo.rows.length) await upsertVariants(c, evo.rows[0].id, 'inbottle-evo', evoTastes);
 
     // PUZZLE
-    const puzzleInsert = await c.query(`INSERT INTO products(category_id,slug,name,brand,subtitle,description,base_price,compare_at_price,image_url,is_active)
-      SELECT id,'inbottle-puzzle-30ml-v19','In bottle Puzzle 30ml','IN BOTTLE','PUZZLE • 30 мл',$2,34900,NULL,'/catalog-import/inbottle-puzzle-v20.png',true FROM categories WHERE slug='ridyny'
-      ON CONFLICT(slug) DO NOTHING RETURNING id`, ['ridyny', puzzleDescription]);
+    await c.query(`INSERT INTO products(category_id,slug,name,brand,subtitle,description,base_price,compare_at_price,image_url,is_active)
+      SELECT id,'inbottle-puzzle-30ml-v19','In bottle Puzzle 30ml','IN BOTTLE','PUZZLE • 30 мл',$1,34900,NULL,'/catalog-import/inbottle-puzzle-v20.png',true FROM categories WHERE slug='ridyny'
+      ON CONFLICT(slug) DO NOTHING RETURNING id`, [puzzleDescription]);
     await c.query(`UPDATE products
       SET name='In bottle Puzzle 30ml', brand='IN BOTTLE', subtitle='PUZZLE • 30 мл',
-          description=$2, base_price=34900, compare_at_price=NULL,
+          description=$1, base_price=34900, compare_at_price=NULL,
           image_url='/catalog-import/inbottle-puzzle-v20.png', is_active=true
-      WHERE slug='inbottle-puzzle-30ml-v19'`, ['inbottle-puzzle-30ml-v19', puzzleDescription]);
+      WHERE slug='inbottle-puzzle-30ml-v19'`, [puzzleDescription]);
     const puzzle = await c.query(`SELECT id FROM products WHERE slug='inbottle-puzzle-30ml-v19'`);
     if (puzzle.rows.length) await upsertVariants(c, puzzle.rows[0].id, 'inbottle-puzzle-30ml-v19', puzzleTastes);
 
     // Lucky: use a single clean product.
     await c.query(`UPDATE products SET is_active=false WHERE brand='LUCKY' AND slug<>'lucky-30ml-v20'`);
     await c.query(`INSERT INTO products(category_id,slug,name,brand,subtitle,description,base_price,compare_at_price,image_url,is_active)
-      SELECT id,'lucky-30ml-v20','Lucky 30ml','LUCKY','Стабільна лінійка • 30 мл',$2,34900,NULL,'/catalog-import/product-9107.webp',true FROM categories WHERE slug='ridyny'
-      ON CONFLICT(slug) DO NOTHING`, ['ridyny', luckyDescription]);
+      SELECT id,'lucky-30ml-v20','Lucky 30ml','LUCKY','Стабільна лінійка • 30 мл',$1,34900,NULL,'/catalog-import/product-9107.webp',true FROM categories WHERE slug='ridyny'
+      ON CONFLICT(slug) DO NOTHING`, [luckyDescription]);
     await c.query(`UPDATE products
       SET name='Lucky 30ml', brand='LUCKY', subtitle='Стабільна лінійка • 30 мл',
-          description=$2, base_price=34900, compare_at_price=NULL,
+          description=$1, base_price=34900, compare_at_price=NULL,
           image_url=COALESCE(NULLIF(image_url,''),'/catalog-import/product-9107.webp'), is_active=true
-      WHERE slug='lucky-30ml-v20'`, ['lucky-30ml-v20', luckyDescription]);
+      WHERE slug='lucky-30ml-v20'`, [luckyDescription]);
     const lucky = await c.query(`SELECT id FROM products WHERE slug='lucky-30ml-v20'`);
     if (lucky.rows.length) await upsertVariants(c, lucky.rows[0].id, 'lucky-30ml-v20', luckyTastes);
   });
