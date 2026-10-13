@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import {pool} from './db';
 import {migrate} from './migrate';
+import {seedPhotoCatalog} from './importCatalog';
+import {enrichCatalogV19} from './enrichCatalogV19';
 const categories=[
   ['ridyny','Рідина-ароматизатори','Преміальні смаки','droplets',2],
   ['pod-systemy','POD-Системи','Сучасні пристрої','zap',1],
@@ -54,6 +56,8 @@ export async function seed(){
     SELECT 'VAPORIA • DELIVERY SLIDE','ЗАМОВЛЯЙ — МИ ДОСТАВИМО','Доставка та оплата', '/banners/delivery-v15.webp','ДО КАТАЛОГУ','/catalog','hero',3
     WHERE NOT EXISTS(SELECT 1 FROM banners WHERE eyebrow='VAPORIA • DELIVERY SLIDE')`);
   await pool.query(`INSERT INTO coupons(code,kind,value,min_subtotal,max_uses) VALUES('WELCOME5','percent',5,30000,100) ON CONFLICT(code) DO NOTHING`);
+  await seedPhotoCatalog();
+  await enrichCatalogV19();
   console.log('Demo catalog initialized (existing edits preserved)');
 }
 if(require.main===module) migrate().then(seed).then(()=>pool.end()).catch(e=>{console.error(e);process.exit(1);});
