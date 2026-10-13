@@ -4,6 +4,7 @@ import {migrate} from './migrate';
 import {seedPhotoCatalog} from './importCatalog';
 import {enrichCatalogV19} from './enrichCatalogV19';
 import {enrichCatalogV20} from './enrichCatalogV20';
+import {enrichCatalogV21} from './enrichCatalogV21';
 const categories=[
   ['ridyny','Рідина-ароматизатори','Преміальні смаки','droplets',2],
   ['pod-systemy','POD-Системи','Сучасні пристрої','zap',1],
