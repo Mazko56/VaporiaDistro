@@ -16,6 +16,17 @@ const moneyInput=(p:number)=>String(p/100);
 const kop=(s:string|number)=>Math.max(0,Math.round(Number(s||0)*100));
 // Display resistance only as a selectable variant, never in the product title.
 const displayProductName=(name:string)=>name.replace(/\s+(?:[0-9]+[.,][0-9]+|[0-9]+)\s*(?:Ω|ohm|ом(?:и|ів)?)\s*$/iu,'').trim();
+
+function decorateFlavorLabel(label:string){
+ const hasEmoji=/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/u.test(label);
+ if(hasEmoji) return label;
+ const lower=label.toLowerCase();
+ const rules:[RegExp,string][]=[
+  [/banana/u,'🍌'],[/cherry/u,'🍒'],[/apple/u,'🍏'],[/blue razz|blueberry|berry|berries/u,'🫐'],[/strawberry/u,'🍓'],[/grape/u,'🍇'],[/lemon|lime|lemonade/u,'🍋'],[/orange/u,'🍊'],[/peach/u,'🍑'],[/pineapple/u,'🍍'],[/kiwi/u,'🥝'],[/watermelon/u,'🍉'],[/pear/u,'🍐'],[/coconut/u,'🥥'],[/mint|menthol|ice|spearmint/u,'🧊'],[/mojito|lemongrass|green tea|tea/u,'🍃'],[/cola|soda|energy/u,'🥤'],[/cafe|latte|mokko|coffee/u,'☕'],[/bubble gum/u,'🍬'],[/cactus/u,'🌵'],[/tobacco|dubacco/u,'🚬']
+ ];
+ const found=rules.find(([re])=>re.test(lower));
+ return found?`${label} ${found[1]}`:label;
+}
 function Shell({children}:{children:ReactNode}){
  const loc=useLocation(),{brand,cartCount}=useStore();const navigate=useNavigate();
  const isAdminRoute=loc.pathname.startsWith('/admin');
@@ -115,7 +126,7 @@ function ProductPage(){const {slug}=useParams(),{data:p,loading}=useFetch<Produc
  <div className="product-gallery"><div className="gallery-actions"><button onClick={()=>navigate(-1)}><ArrowLeft size={20}/></button><div><button aria-label="В обране" onClick={toggle}><Heart size={21} fill={fav?'currentColor':'none'}/></button><button aria-label="Поділитися" onClick={()=>{void navigator.clipboard?.writeText(location.href);notify('Посилання скопійовано');}}><UploadCloud size={20}/></button></div></div><Art product={{...p,image_url:selectedPhoto}} size="big"/>{p.badge&&<span className="gallery-badge">{p.badge}</span>}</div>
  <div className="photo-thumbs">{[p.image_url,...(p.gallery||[])].filter(Boolean).length?[p.image_url,...p.gallery].filter(Boolean).map((photo,i)=><button key={i} className={selectedPhoto===photo?'selected':''} onClick={()=>setSelectedPhoto(photo)}><img src={photo} alt={`Фото ${i+1}`}/></button>):<><div className="fake-thumb selected"><Zap size={20}/></div><div className="fake-thumb"><Crown size={20}/></div><div className="fake-thumb"><Sparkles size={20}/></div></>}</div>
  <div className="product-meta"><span className="eyebrow">{p.brand} / {p.category_name}</span><h1>{displayProductName(p.name)}</h1><div className="rating-line"><Star size={14} fill="#ffc66b" color="#ffc66b"/><span>Варіанти на вибір</span><i/> <span>Наявність: {selected?.stock||0} шт.</span></div><div className="detail-price"><strong>{unit>0?price(unit):'Ціна уточнюється'}</strong>{p.compare_at_price&&<del>{price(p.compare_at_price)}</del>}</div></div>
- <div className="choices"><h3>Оберіть {p.category_slug==='pod-systemy'?'колір / комплектацію':'смак / варіант'}</h3><div className="variant-list">{p.variants.map(v=><button className={v.id===variant?'picked':''} disabled={!v.stock||!v.is_active} key={v.id} onClick={()=>{setVariant(v.id);setQty(1);}}>{v.label}{!v.stock&&<small>Немає</small>}</button>)}</div></div>
+ <div className="choices"><h3>Оберіть {p.category_slug==='pod-systemy'?'колір / комплектацію':'смак / варіант'}</h3><div className="variant-list">{p.variants.map(v=><button className={v.id===variant?'picked':''} disabled={!v.stock||!v.is_active} key={v.id} onClick={()=>{setVariant(v.id);setQty(1);}}>{decorateFlavorLabel(v.label)}{!v.stock&&<small>Немає</small>}</button>)}</div></div>
  <div className="qty-row"><div><b>Кількість</b><small>В наявності: {selected?.stock||0}</small></div><div className="stepper"><button disabled={qty<=1} onClick={()=>setQty(q=>Math.max(1,q-1))}><Minus size={16}/></button><strong>{qty}</strong><button disabled={qty>=(selected?.stock||0)} onClick={()=>setQty(q=>q+1)}><Plus size={16}/></button></div></div>
  <button className="button primary product-add" disabled={!selected?.stock||adding} onClick={()=>void add()}><ShoppingCart size={19}/> {adding?'ДОДАВАННЯ...':'ДОДАТИ В КОШИК'} <span>{price(unit*qty)}</span></button>
  <div className="product-description"><div className="description-title"><Sparkles size={18}/> Про товар</div><p>{p.description||p.subtitle}</p><div className="description-detail"><ShieldCheck size={18}/> Оригінальна продукція • Уточнюйте характеристики перед покупкою</div></div>
