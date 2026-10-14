@@ -153,7 +153,7 @@ app.post('/api/coupon/check',userGuard,wrap(async(req,res)=>{
   if(!c||input.subtotal<c.min_subtotal)throw new HttpError(400,'Промокод недійсний або не виконана мінімальна сума');
   res.json({code:c.code,discount:calcDiscount(input.subtotal,c)});
 }));
-const checkoutSchema=z.object({request_id:z.string().uuid(),first_name:z.string().trim().min(2).max(55),last_name:z.string().trim().min(2).max(55),phone:uaPhoneSchema,delivery_method:z.enum(['nova_poshta','ukrposhta','pickup']),city:z.string().trim().min(2).max(100),shipping_details:z.string().trim().min(1).max(200),payment_method:z.literal('cod'),comment:z.string().trim().max(800).default(''),coupon_code:z.string().trim().max(32).optional().default(''),bonus_used:z.number().int().nonnegative().default(0),age_agreed:z.literal(true)});
+const checkoutSchema=z.object({request_id:z.string().uuid(),first_name:z.string().trim().min(2).max(55),last_name:z.string().trim().min(2).max(55),phone:uaPhoneSchema,delivery_method:z.literal('nova_poshta'),city:z.string().trim().min(2).max(100),shipping_details:z.string().trim().min(1).max(200),payment_method:z.literal('cod'),comment:z.string().trim().max(800).default(''),coupon_code:z.literal('').optional().default(''),bonus_used:z.number().int().nonnegative().default(0),age_agreed:z.literal(true)});
 app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(async(req,res)=>{
   if(!config.checkoutEnabled)throw new HttpError(403,'Оформлення вимкнено до перевірки законодавчих вимог та підтвердження віку');
   const data=validate(checkoutSchema,req.body);const user=getUser(res);
