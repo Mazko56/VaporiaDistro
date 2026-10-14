@@ -81,7 +81,7 @@ export async function notifyOrder(number:string,telegramId:string,totalKop:numbe
     catch(e){console.warn(`Order notification failed for chat ${chatId}:`,e);}
   }
 }
-export async function notifyStatus(telegramId:string, number:string,status:string,bonusAwarded=0) {
+export async function notifyStatus(telegramId:string,status:string,bonusAwarded=0) {
   const labels:Record<string,string>={confirmed:'підтверджено',shipped:'відправлено',completed:'виконано',received:'отримано',cancelled:'скасовано'};
   if(!bot)return;
   try{await bot.api.sendMessage(telegramId,`📦 Статус вашого замовлення: ${labels[status]||status}.`+(status==='received'&&bonusAwarded>0?`\n👑 Нараховано ${bonusAwarded} бонусів на ваш баланс.`:''));}catch(e){console.warn('Status message failed:',e);}

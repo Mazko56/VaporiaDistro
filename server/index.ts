@@ -224,10 +224,10 @@ app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(asy
   void notifyOrder(String(order.number),String(user.telegram_id),Number(order.total),{orderId:Number(order.id),deliveryMethod:data.delivery_method,city:data.city,branch:data.shipping_details,paymentMethod:data.payment_method,bonusUsed:data.bonus_used});
 }));
 app.get('/api/me/orders',userGuard,wrap(async(_req,res)=>{
-  const orders=await query(`SELECT o.id,o.created_at,o.status,o.customer_name,o.phone,o.delivery_method,o.city,o.shipping_details,o.payment_method,o.bonus_used,o.bonus_awarded,o.total,COALESCE((SELECT json_agg(json_build_object('product_name',oi.product_name,'variant_label',oi.variant_label,'quantity',oi.quantity,'unit_price',oi.unit_price) ORDER BY oi.id) FROM order_items oi WHERE oi.order_id=o.id),'[]'::json) AS items
+  const orders=await query(`SELECT o.created_at,o.status,o.customer_name,o.phone,o.delivery_method,o.city,o.shipping_details,o.payment_method,o.bonus_used,o.bonus_awarded,o.total,COALESCE((SELECT json_agg(json_build_object('product_name',oi.product_name,'variant_label',oi.variant_label,'quantity',oi.quantity,'unit_price',oi.unit_price) ORDER BY oi.id) FROM order_items oi WHERE oi.order_id=o.id),'[]'::json) AS items
   FROM orders o WHERE o.user_id=$1 ORDER BY o.created_at DESC LIMIT 60`,[getUser(res).id]);res.json(orders);
 }));
-app.get('/api/me/bonuses',userGuard,wrap(async(_req,res)=>res.json(await query("SELECT id,delta,regexp_replace(description, '№[[:space:]]*[0-9]+', '', 'g') AS description,created_at FROM bonus_ledger WHERE user_id=$1 ORDER BY id DESC LIMIT 100",[getUser(res).id]))));
+app.get('/api/me/bonuses',userGuard,wrap(async(_req,res)=>res.json(await query("SELECT id,delta,btrim(regexp_replace(description, '([№#][[:space:]]*[0-9]+|[Зз]амовлення[[:space:]]+[0-9]+)', '', 'g')) AS description,created_at FROM bonus_ledger WHERE user_id=$1 ORDER BY id DESC LIMIT 100",[getUser(res).id]))));
 // --- ADMIN ---
 
 const adminSections=['overview','orders','products','categories','brands','banners','coupons','bonus','access'] as const;
@@ -372,7 +372,7 @@ app.patch('/api/admin/orders/:id/status',adminOnly,wrap(async(req,res)=>{
     const updated=(await c.query('UPDATE orders SET status=$1,bonus_awarded=$2,updated_at=now() WHERE id=$3 RETURNING *',[status,awarded,old.id])).rows[0];
     return {...updated,telegram_id:old.telegram_id};
   });
-  res.json(result);void notifyStatus(String(result.telegram_id),String(result.number),status,Number(result.bonus_awarded||0));
+  res.json(result);void notifyStatus(String(result.telegram_id),status,Number(result.bonus_awarded||0));
 }));
 app.get('/api/admin/categories',adminOnly,wrap(async(_req,res)=>res.json(await query('SELECT * FROM categories ORDER BY sort_order,id'))));
 const categorySchema=z.object({slug:z.string().min(2).max(80).regex(/^[a-z0-9-]+$/),name:z.string().trim().min(2).max(120),subtitle:z.string().max(160).default(''),icon:z.string().max(32).default('box'),image_url:z.string().max(600).default(''),sort_order:z.number().int().default(0),is_active:z.boolean().default(true)});
