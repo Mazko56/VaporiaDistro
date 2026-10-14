@@ -163,3 +163,10 @@ em{font-style:normal;color:#6a9dff}.button{display:inline-flex;align-items:cente
 /* VAPORIA 1.7 — wide manufacturer artwork without changing home-page square icons. */
 .brand-detail-hero.has-wide-banner { height:auto;aspect-ratio:5 / 2;overflow:hidden;display:block; }
 .brand-detail-hero.has-wide-banner img { width:100%;height:100%;max-width:none;object-fit:cover;display:block; }
+
+/* OXVA POD specification panel */
+.oxva-spec-title{margin:19px 0 11px;font-size:14px;font-weight:800;color:#d3e3ff;letter-spacing:.025em}
+.oxva-spec-grid{display:grid;gap:7px}
+.oxva-spec-row{display:grid;grid-template-columns:minmax(0,42%) minmax(0,1fr);gap:9px;padding:12px;border:1px solid #324560;border-radius:10px;background:linear-gradient(125deg,#17233a,#101826);align-items:start}
+.oxva-spec-row span{font-size:11px;color:#9eb4d7;line-height:1.45}
+.oxva-spec-row strong{font-size:11px;color:#f5f8ff;font-weight:700;line-height:1.45;overflow-wrap:anywhere}
