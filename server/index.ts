@@ -173,16 +173,11 @@ app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(asy
     if(!lines.length)throw new HttpError(400,'Кошик порожній');
     for(const item of lines)if(!item.is_active || !item.product_active || item.stock<item.quantity)throw new HttpError(409,`Недостатня кількість: ${item.name} (${item.label})`);
     const subtotal=lines.reduce((sum,l)=>sum+l.unit_price*l.quantity,0);
-    let cpn:any=null,discount=0;
-    if(data.coupon_code){
-      cpn=(await c.query('SELECT * FROM coupons WHERE code=$1 FOR UPDATE',[data.coupon_code.toUpperCase()])).rows[0];
-      if(!cpn||!cpn.is_active || (cpn.expires_at && new Date(cpn.expires_at)<new Date()) || (cpn.max_uses!==null && cpn.uses>=cpn.max_uses) || subtotal<cpn.min_subtotal)
-        throw new HttpError(400,'Промокод більше не діє');
-      discount=calcDiscount(subtotal,cpn);
-    }
+    // New checkouts no longer accept promotional codes; preserve historical order fields.
+    const discount=0;
     if(data.bonus_used>maxRedeemable(current.bonus_balance,subtotal-discount))throw new HttpError(400,'Недостатньо бонусів або перевищено ліміт 30%');
     const total=subtotal-discount-data.bonus_used*100;
-    const values=[user.id,data.request_id,`${data.first_name} ${data.last_name}`,data.phone,data.delivery_method,data.city,data.shipping_details,data.payment_method,data.comment,subtotal,discount,data.bonus_used,total,cpn?.code||null];
+    const values=[user.id,data.request_id,`${data.first_name} ${data.last_name}`,data.phone,data.delivery_method,data.city,data.shipping_details,data.payment_method,data.comment,subtotal,discount,data.bonus_used,total,null];
     const inserted=(await c.query(`INSERT INTO orders(user_id,request_id,customer_name,phone,delivery_method,city,shipping_details,payment_method,comment,subtotal,discount,bonus_used,total,coupon_code)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id,number,total`,values)).rows[0];
     for(const l of lines){
@@ -190,7 +185,6 @@ app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(asy
       if(!update.rowCount)throw new HttpError(409,'Товар закінчився під час оформлення');
       await c.query('INSERT INTO order_items(order_id,variant_id,product_name,variant_label,sku,quantity,unit_price,line_total) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[inserted.id,l.variant_id,l.name,l.label,l.sku,l.quantity,l.unit_price,l.unit_price*l.quantity]);
     }
-    if(cpn)await c.query('UPDATE coupons SET uses=uses+1 WHERE id=$1',[cpn.id]);
     if(data.bonus_used){await c.query('UPDATE users SET bonus_balance=bonus_balance-$1 WHERE id=$2',[data.bonus_used,user.id]);await c.query('INSERT INTO bonus_ledger(user_id,order_id,delta,description) VALUES($1,$2,$3,$4)',[user.id,inserted.id,-data.bonus_used,'Оплата бонусами']);}
     await c.query('DELETE FROM cart_items WHERE user_id=$1',[user.id]);
     return inserted;
