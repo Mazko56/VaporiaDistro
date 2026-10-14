@@ -118,9 +118,42 @@ function BrandPage(){const {slug}=useParams(),{data:brands}=useFetch<Brand[]>('/
  const current=brands?.find(b=>b.slug===slug);if(!brands)return <Loading/>;if(!current)return <Empty title="Виробника не знайдено" link="/" linkText="На головну"/>;return <div><PageTitle subtitle="Товари виробника">{current?.name||'Виробник'}</PageTitle>
  {(current?.banner_url||current?.image_url)&&<div className={`brand-detail-hero ${current.banner_url?'has-wide-banner':''}`}><img src={current.banner_url||current.image_url} alt={`${current.name} — банер`}/></div>}
  {loading?<Loading/>:products?.length?<div className="product-grid">{products.map(p=><ProductCard key={p.id} product={p}/>)}</div>:<Empty icon={Package} title="Поки немає товарів цього виробника" subtitle="Додайте товари з цією назвою бренду в адмінпанелі" link="/" linkText="На головну"/>}</div>;}
+// Recommend complementary items, never unrelated cartridges or incompatible POD series.
+function relatedProducts(product:Product, catalog:Product[]):Product[]{
+ const sameSeries=(candidate:Product)=>{
+   const target=(product.name+' '+product.brand).toUpperCase();
+   const name=(candidate.name+' '+candidate.brand).toUpperCase();
+   if(target.includes('NEXLIM')) return name.includes('NEXLIM');
+   if(target.includes('XLIM')) return name.includes('XLIM') && !name.includes('NEXLIM');
+   if(target.includes('XROS') || target.includes('VAPORESSO')) return name.includes('XROS') || name.includes('VAPORESSO');
+   if(target.includes('VMATE') || target.includes('VOOPOO')) return name.includes('VMATE');
+   return false;
+ };
+ const active=catalog.filter(item=>item.id!==product.id && item.is_active && item.variants.some(v=>v.is_active&&v.stock>0));
+ const ranked=active.map(item=>{
+   let score=0;
+   if(product.category_slug==='pod-systemy'){
+     if(item.category_slug==='kartrydzhi' && sameSeries(item))score=40;
+     else if(item.category_slug==='ridyny')score=20;
+   }else if(product.category_slug==='ridyny'){
+     if(item.category_slug==='pod-systemy')score=30;
+     else if(item.category_slug==='kartrydzhi')score=10;
+   }else if(product.category_slug==='kartrydzhi'){
+     if(item.category_slug==='pod-systemy' && sameSeries(item))score=40;
+     else if(item.category_slug==='ridyny')score=20;
+   }else if(item.category_slug==='pod-systemy')score=10;
+   return {item,score};
+ }).filter(x=>x.score>0);
+ ranked.sort((a,b)=>b.score-a.score||a.item.id-b.item.id);
+ // Preserve variety instead of filling the entire row with one category.
+ const out:Product[]=[];const used=new Set<string>();
+ for(const {item} of ranked){if(!used.has(item.category_slug)){out.push(item);used.add(item.category_slug);}}
+ for(const {item} of ranked){if(out.length>=4)break;if(!out.some(x=>x.id===item.id))out.push(item);}
+ return out.slice(0,4);
+}
 function ProductPage(){const {slug}=useParams(),{data:p,loading}=useFetch<Product>(`/products/${slug}`);const {notify,refreshCart}=useStore();const [variant,setVariant]=useState<number|null>(null),[qty,setQty]=useState(1),[selectedPhoto,setSelectedPhoto]=useState(''),[adding,setAdding]=useState(false),[fav,setFav]=useState(false);const navigate=useNavigate();
  useEffect(()=>{if(p){const firstActive=p.variants.find(v=>v.is_active) || p.variants[0];setVariant(firstActive?.id||null);setSelectedPhoto(p.image_url||'');setQty(1);}},[p?.id]);
- const visibleVariants=(p?.variants||[]).filter(v=>v.is_active);const selected=p?.variants.find(v=>v.id===variant);const unit=selected?.price_override ?? p?.base_price ?? 0;const related=useFetch<Product[]>(`/products?category=${encodeURIComponent(p?.category_slug||'')}`);
+ const visibleVariants=(p?.variants||[]).filter(v=>v.is_active);const selected=p?.variants.find(v=>v.id===variant);const unit=selected?.price_override ?? p?.base_price ?? 0;const related=useFetch<Product[]>('/products');const recommendations=p?relatedProducts(p,related.data||[]):[];
  const add=async()=>{if(!selected)return;setAdding(true);try{await api('/cart',json('POST',{variant_id:selected.id,quantity:qty}));await refreshCart();notify('Товар додано до кошика');window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');}catch(e){notifyError(e,notify);}finally{setAdding(false);}};
  const toggle=async()=>{if(!p)return;try{const r=await api<{favorite:boolean}>(`/me/favorites/${p.id}`,json('POST'));setFav(r.favorite);notify(r.favorite?'Додано в обране':'Прибрано з обраного');}catch(e){notifyError(e,notify);}};
  return <div className="product-page">{loading?<Loading/>:!p?<Empty title="Товар не знайдено" link="/catalog"/>:<>
@@ -131,7 +164,7 @@ function ProductPage(){const {slug}=useParams(),{data:p,loading}=useFetch<Produc
  <div className="qty-row"><div><b>Кількість</b><small>В наявності: {selected?.stock||0}</small></div><div className="stepper"><button disabled={qty<=1} onClick={()=>setQty(q=>Math.max(1,q-1))}><Minus size={16}/></button><strong>{qty}</strong><button disabled={qty>=(selected?.stock||0)} onClick={()=>setQty(q=>q+1)}><Plus size={16}/></button></div></div>
  <button className="button primary product-add" disabled={!selected?.stock||adding} onClick={()=>void add()}><ShoppingCart size={19}/> {adding?'ДОДАВАННЯ...':'ДОДАТИ В КОШИК'} <span>{price(unit*qty)}</span></button>
  <div className="product-description"><div className="description-title"><Sparkles size={18}/> Про товар</div>{p.description?.includes("\nХарактеристики:\n") ? <><p>{p.description.split("\nХарактеристики:\n")[0]}</p><div className="oxva-spec-title">Технічні характеристики</div><div className="oxva-spec-grid">{p.description.split("\nХарактеристики:\n")[1].split("\n").filter(Boolean).map((line,i)=>{const [label,...parts]=line.split("|");return <div className="oxva-spec-row" key={i}><span>{label}</span><strong>{parts.join("|")}</strong></div>;})}</div></> : <p>{p.description||p.subtitle}</p>}<div className="description-detail"><ShieldCheck size={18}/> Оригінальна продукція • Уточнюйте характеристики перед покупкою</div></div>
- {(related.data||[]).filter(item=>item.id!==p.id).length>0&&<><div className="section-heading related-head"><h2>Може <em>зацікавити</em></h2></div><div className="product-grid">{related.data!.filter(item=>item.id!==p.id).slice(0,4).map(item=><ProductCard key={item.id} product={item}/>)}</div></>}
+ {recommendations.length>0&&<><div className="section-heading related-head"><h2>Рекомендуємо <em>до товару</em></h2></div><div className="product-grid">{recommendations.map(item=><ProductCard key={item.id} product={item}/>)}</div></>}
  </>}</div>;
 }
 function SearchPage(){const [q,setQ]=useState(''),[debounced,setDebounced]=useState('');useEffect(()=>{const t=setTimeout(()=>setDebounced(q.trim()),250);return()=>clearTimeout(t);},[q]);const {data,loading}=useFetch<Product[]>(`/products?search=${encodeURIComponent(debounced)}`);const chips=['INBOTTLE','HYPE','VAPORESSO','CHASER','POD','Картриджі','Blue razz','Lemon'];return <div><PageTitle subtitle="Знайди те, що подобається">Пошук</PageTitle><div className="search-box"><SearchIcon size={21}/><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Товари, бренди, смаки..."/>{q&&<button onClick={()=>setQ('')}><X size={18}/></button>}</div><div className="search-suggestions"><h3>{q?'Результати пошуку':'Популярні запити'}</h3>{!q&&<div className="search-chips">{chips.map(c=><button key={c} onClick={()=>setQ(c)}>{c} <ArrowRight size={12}/></button>)}</div>}</div>{loading?<Loading/>:data?.length?<div className="product-grid search-results">{data.map(p=><ProductCard product={p} key={p.id}/>)}</div>:<Empty icon={SearchIcon} title="Нічого не знайдено" subtitle="Спробуйте іншу назву або бренд"/>}</div>;}
