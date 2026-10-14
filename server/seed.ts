@@ -64,8 +64,9 @@ export async function seed(){
     SELECT 'VAPORIA • BONUS SLIDE','VAPORIA BONUS','Бонусна програма', '/banners/bonus-v15.webp','МОЇ БОНУСИ','/bonuses','hero',2
     WHERE NOT EXISTS(SELECT 1 FROM banners WHERE eyebrow='VAPORIA • BONUS SLIDE')`);
   await pool.query(`INSERT INTO banners(eyebrow,title,subtitle,image_url,button_text,button_link,kind,sort_order)
-    SELECT 'VAPORIA • DELIVERY SLIDE','ЗАМОВЛЯЙ — МИ ДОСТАВИМО','Доставка та оплата', '/banners/delivery-v15.webp','ДО КАТАЛОГУ','/catalog','hero',3
+    SELECT 'VAPORIA • DELIVERY SLIDE','ЗАМОВЛЯЙ — МИ ДОСТАВИМО','Доставка та оплата', '/banners/delivery-v15.webp','УМОВИ ДОСТАВКИ','/delivery','hero',3
     WHERE NOT EXISTS(SELECT 1 FROM banners WHERE eyebrow='VAPORIA • DELIVERY SLIDE')`);
+  await pool.query("UPDATE banners SET button_link='/delivery', button_text='УМОВИ ДОСТАВКИ' WHERE eyebrow='VAPORIA • DELIVERY SLIDE' AND button_link='/catalog'");
   await pool.query(`INSERT INTO coupons(code,kind,value,min_subtotal,max_uses) VALUES('WELCOME5','percent',5,30000,100) ON CONFLICT(code) DO NOTHING`);
   await seedPhotoCatalog();
   await enrichCatalogV19();
