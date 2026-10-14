@@ -49,20 +49,40 @@ export async function handleTelegramUpdate(update:unknown) {
   if(!bot)throw new Error('Telegram bot is not ready; update will be retried by Telegram');
   await bot.handleUpdate(update as any);
 }
-export type OrderNotification = {deliveryMethod:string;city:string;branch:string;paymentMethod:string;bonusUsed:number};
-export async function notifyOrder(number:string,telegramId:string,totalKop:number,details?:OrderNotification) {
+export type OrderNotification = {orderId:number;deliveryMethod:string;city:string;branch:string;paymentMethod:string;bonusUsed:number};
+// Telegram users must first open the bot and press Start to allow direct messages.
+// One notification is sent to every active admin who has access to orders.
+export async function notifyOrder(number:string,telegramId:string,totalKop:number,details:OrderNotification) {
   if(!bot)return;
-  const message=`✅ Замовлення №${number} прийнято!\nСума: ${(totalKop/100).toFixed(2)} ₴.\nОчікуйте підтвердження менеджера.`;
-  try {await bot.api.sendMessage(telegramId,message);} catch(e){console.warn('User notification failed:',e);}
-  const carrier=details?.deliveryMethod==='nova_poshta'?'Нова пошта':details?.deliveryMethod==='ukrposhta'?'Укрпошта':'Самовивіз';
-  const pay=details?.paymentMethod==='cod'?'Накладений платіж':'Узгодження з менеджером';
-  const admin=`🛒 Нове замовлення №${number}\nСума: ${(totalKop/100).toFixed(2)} ₴\nКлієнт: ${telegramId}`+
-    (details?`\nДоставка: ${carrier}\nМісто: ${details.city}\nВідділення: ${details.branch}\nОплата: ${pay}\nСписано бонусів: ${details.bonusUsed}`:'')+
-    `\nПеревірте адмінпанель: ${config.publicUrl}/admin`;
-  if(config.adminChatId)try{await bot.api.sendMessage(config.adminChatId,admin);}catch(e){console.warn('Admin notification failed:',e);}
+  try {await bot.api.sendMessage(telegramId,`✅ Ваше замовлення прийнято!\nСума: ${(totalKop/100).toFixed(2)} ₴.\nОчікуйте підтвердження менеджера.`);} catch(e){console.warn('User notification failed:',e);}
+  let rows:{product_name:string;variant_label:string;quantity:number;unit_price:number}[]=[];
+  let customer:{customer_name:string;phone:string;comment:string}|undefined;
+  try {
+    rows=await query(`SELECT product_name,variant_label,quantity,unit_price FROM order_items WHERE order_id=$1 ORDER BY id`,[details.orderId]);
+    customer=(await query('SELECT customer_name,phone,comment FROM orders WHERE id=$1',[details.orderId]))[0];
+  } catch(e){console.warn('Order notification details unavailable:',e);}
+  const lines=rows.map(r=>`• ${r.product_name} (${r.variant_label}) ×${r.quantity} — ${(r.unit_price*r.quantity/100).toFixed(2)} ₴`).join('\n');
+  const admin=`🛒 Нове замовлення №${number}\n\n`+
+    (customer?`Клієнт: ${customer.customer_name}\nТелефон: ${customer.phone}\n`:'')+
+    `Telegram ID: ${telegramId}\n\n`+
+    (lines?`Товари:\n${lines}\n\n`:'')+
+    `Сума: ${(totalKop/100).toFixed(2)} ₴\nДоставка: Нова пошта\nМісто: ${details.city}\nВідділення: ${details.branch}\n`+
+    `Оплата: ${details.paymentMethod==='cod'?'Накладений платіж':details.paymentMethod}\nБонуси: ${details.bonusUsed}`+
+    (customer?.comment?`\nКоментар: ${customer.comment}`:'')+
+    `\n\nАдмінпанель: ${config.publicUrl}/admin`;
+  const recipients=new Set<string>(config.adminIds);
+  try {
+    const additional=await query('SELECT telegram_id,sections FROM extra_admins');
+    for(const item of additional){if(Array.isArray(item.sections)&&item.sections.includes('orders'))recipients.add(String(item.telegram_id));}
+  }catch(e){console.warn('Could not load additional admins for order notifications:',e);}
+  if(config.adminChatId)recipients.add(config.adminChatId);
+  for(const chatId of recipients){
+    try {await bot.api.sendMessage(chatId,admin.length<=4096?admin:admin.slice(0,4000)+'\n… (повний склад замовлення — в адмінпанелі)');}
+    catch(e){console.warn(`Order notification failed for chat ${chatId}:`,e);}
+  }
 }
 export async function notifyStatus(telegramId:string, number:string,status:string,bonusAwarded=0) {
   const labels:Record<string,string>={confirmed:'підтверджено',shipped:'відправлено',completed:'виконано',received:'отримано',cancelled:'скасовано'};
   if(!bot)return;
-  try{await bot.api.sendMessage(telegramId,`📦 Замовлення №${number}: ${labels[status]||status}.`+(status==='received'&&bonusAwarded>0?`\n👑 Нараховано ${bonusAwarded} бонусів на ваш баланс.`:''));}catch(e){console.warn('Status message failed:',e);}
+  try{await bot.api.sendMessage(telegramId,`📦 Статус вашого замовлення: ${labels[status]||status}.`+(status==='received'&&bonusAwarded>0?`\n👑 Нараховано ${bonusAwarded} бонусів на ваш баланс.`:''));}catch(e){console.warn('Status message failed:',e);}
 }

@@ -55,6 +55,37 @@ app.get('/api/media/:id',wrap(async(req,res)=>{
   res.send(asset.content);
 }));
 
+// Nova Poshta reference lookup only; never creates waybills or payment obligations.
+const novaLookupLimiter=rateLimit({windowMs:60_000,limit:35,standardHeaders:'draft-7',legacyHeaders:false});
+const novaCache=new Map<string,{expires:number;data:any}>();
+async function novaLookup(method:string,properties:Record<string,unknown>){
+  const apiKey=process.env.NOVA_POSHTA_API_KEY?.trim();
+  if(!apiKey)throw new HttpError(503,'Пошук Нової пошти ще не налаштовано');
+  const cacheKey=JSON.stringify([method,properties]);
+  const cached=novaCache.get(cacheKey);
+  if(cached&&cached.expires>Date.now())return cached.data;
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),9000);
+  try{
+    const response=await fetch('https://api.novaposhta.ua/v2.0/json/',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({apiKey,modelName:'Address',calledMethod:method,methodProperties:properties})});
+    if(!response.ok)throw new HttpError(502,'Нова пошта тимчасово недоступна');
+    const body=await response.json() as {success:boolean;data:any[];errors?:string[]};
+    if(!body.success)throw new HttpError(502,'Помилка пошуку Нової пошти');
+    if(novaCache.size>500)novaCache.clear();
+    novaCache.set(cacheKey,{expires:Date.now()+15*60_000,data:body.data});
+    return body.data;
+  }finally{clearTimeout(timer);}
+}
+app.get('/api/shipping/np/cities',novaLookupLimiter,wrap(async(req,res)=>{
+  const term=z.string().trim().min(2).max(75).parse(req.query.q);
+  const data=await novaLookup('searchSettlements',{CityName:term,Limit:30,Page:1});
+  const addresses=Array.isArray(data)?(data[0]?.Addresses||[]):[];
+  res.json(addresses.map((a:any)=>({ref:String(a.Ref||''),name:String(a.Present||a.MainDescription||''),cityRef:String(a.DeliveryCity||'')})).filter((x:any)=>x.ref&&x.name&&x.cityRef).slice(0,30));
+}));
+app.get('/api/shipping/np/warehouses',novaLookupLimiter,wrap(async(req,res)=>{
+  const cityRef=z.string().uuid().parse(req.query.cityRef);
+  const data=await novaLookup('getWarehouses',{CityRef:cityRef,Limit:500,Page:1});
+  res.json((Array.isArray(data)?data:[]).map((w:any)=>({ref:String(w.Ref||''),name:String(w.Description||'')})).filter((w:any)=>w.ref&&w.name));
+}));
 app.get('/api/config',(_req,res)=>res.json({brand:process.env.STORE_NAME || 'VAPORIA DISTRO',bonusPercent:config.bonusPercent,devAuth:config.devAuth,checkoutEnabled:config.checkoutEnabled}));
 const authLimiter=rateLimit({windowMs:60_000,limit:20,standardHeaders:'draft-7',legacyHeaders:false});
 app.post('/api/auth/telegram',authLimiter,wrap(async(req,res)=>{
@@ -160,7 +191,7 @@ app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(asy
   if (['nova_poshta','ukrposhta'].includes(data.delivery_method) && !data.shipping_details.trim())
     throw new HttpError(400,'Вкажіть номер відділення або адресу доставки');
   const existing=await query('SELECT id,number,total FROM orders WHERE request_id=$1 AND user_id=$2',[data.request_id,user.id]);
-  if(existing.length){res.json({ok:true,order:existing[0]});return;}
+  if(existing.length){res.json({ok:true});return;}
   const order=await tx(async c=>{
     const current=(await c.query('SELECT * FROM users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
     if(!current.age_confirmed)throw new HttpError(403,'Підтвердьте повноліття');
@@ -189,14 +220,14 @@ app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(asy
     await c.query('DELETE FROM cart_items WHERE user_id=$1',[user.id]);
     return inserted;
   });
-  res.status(201).json({ok:true,order});
-  void notifyOrder(String(order.number),String(user.telegram_id),Number(order.total),{deliveryMethod:data.delivery_method,city:data.city,branch:data.shipping_details,paymentMethod:data.payment_method,bonusUsed:data.bonus_used});
+  res.status(201).json({ok:true});
+  void notifyOrder(String(order.number),String(user.telegram_id),Number(order.total),{orderId:Number(order.id),deliveryMethod:data.delivery_method,city:data.city,branch:data.shipping_details,paymentMethod:data.payment_method,bonusUsed:data.bonus_used});
 }));
 app.get('/api/me/orders',userGuard,wrap(async(_req,res)=>{
-  const orders=await query(`SELECT o.*,COALESCE((SELECT json_agg(json_build_object('product_name',oi.product_name,'variant_label',oi.variant_label,'quantity',oi.quantity,'unit_price',oi.unit_price) ORDER BY oi.id) FROM order_items oi WHERE oi.order_id=o.id),'[]'::json) AS items
+  const orders=await query(`SELECT o.id,o.created_at,o.status,o.customer_name,o.phone,o.delivery_method,o.city,o.shipping_details,o.payment_method,o.bonus_used,o.bonus_awarded,o.total,COALESCE((SELECT json_agg(json_build_object('product_name',oi.product_name,'variant_label',oi.variant_label,'quantity',oi.quantity,'unit_price',oi.unit_price) ORDER BY oi.id) FROM order_items oi WHERE oi.order_id=o.id),'[]'::json) AS items
   FROM orders o WHERE o.user_id=$1 ORDER BY o.created_at DESC LIMIT 60`,[getUser(res).id]);res.json(orders);
 }));
-app.get('/api/me/bonuses',userGuard,wrap(async(_req,res)=>res.json(await query('SELECT id,delta,description,created_at FROM bonus_ledger WHERE user_id=$1 ORDER BY id DESC LIMIT 100',[getUser(res).id]))));
+app.get('/api/me/bonuses',userGuard,wrap(async(_req,res)=>res.json(await query("SELECT id,delta,regexp_replace(description, '№[[:space:]]*[0-9]+', '', 'g') AS description,created_at FROM bonus_ledger WHERE user_id=$1 ORDER BY id DESC LIMIT 100",[getUser(res).id]))));
 // --- ADMIN ---
 
 const adminSections=['overview','orders','products','categories','brands','banners','coupons','bonus','access'] as const;
@@ -336,7 +367,7 @@ app.patch('/api/admin/orders/:id/status',adminOnly,wrap(async(req,res)=>{
     let awarded=0;
     if(shouldAwardOrder(old.status as OrderStatus,status,Number(old.bonus_awarded))){
       awarded=earnedBonusPoints(Number(old.total),config.bonusPercent);
-      if(awarded>0){await c.query('UPDATE users SET bonus_balance=bonus_balance+$1 WHERE id=$2',[awarded,old.user_id]);await c.query('INSERT INTO bonus_ledger(user_id,order_id,delta,description) VALUES($1,$2,$3,$4)',[old.user_id,old.id,awarded,`Бонуси за отримане замовлення №${old.number}`]);}
+      if(awarded>0){await c.query('UPDATE users SET bonus_balance=bonus_balance+$1 WHERE id=$2',[awarded,old.user_id]);await c.query('INSERT INTO bonus_ledger(user_id,order_id,delta,description) VALUES($1,$2,$3,$4)',[old.user_id,old.id,awarded,'Бонуси за отримане замовлення']);}
     }
     const updated=(await c.query('UPDATE orders SET status=$1,bonus_awarded=$2,updated_at=now() WHERE id=$3 RETURNING *',[status,awarded,old.id])).rows[0];
     return {...updated,telegram_id:old.telegram_id};

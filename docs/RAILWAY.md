@@ -132,3 +132,9 @@ Railway сам задає `PORT`; **не потрібно** вручну вка�
 Вебсервіс і Postgres — різні сервіси у **одному Railway project**. Web service можна redeploy без очищення DB. Не ставте Dockerfile. Якщо хочете видалити демонстраційні позиції — приховайте їх у адмінці або видаліть вручну з БД після резервної копії.
 
 Джерела: [Railway PostgreSQL](https://docs.railway.com/databases/postgresql), [Build/Start commands](https://docs.railway.com/builds/build-and-start-commands), [Reference Variables](https://docs.railway.com/variables/reference), [Telegram Mini Apps validation](https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app).
+
+## Telegram сповіщення про нові замовлення
+
+Після успішного оформлення бот надсилає повідомлення власнику (`ADMIN_TELEGRAM_IDS` та основний ID `5138418509`), а також адміністраторам із доступом до розділу `orders`.
+Для особистих сповіщень кожен адміністратор повинен спочатку відкрити бота й натиснути `/start`: Telegram забороняє ботам першими писати користувачам.
+`ADMIN_CHAT_ID` залишається необов'язковою змінною для копії в групу чи інший чат. Якщо вона вказана, повідомлення надходить також туди (без дублів, коли ID збігаються).
