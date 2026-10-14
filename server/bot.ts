@@ -1,5 +1,6 @@
 import {Bot, InlineKeyboard} from 'grammy';
 import {config} from './config';
+import {query} from './db';
 let bot:Bot | undefined;
 export async function initBot(){
   if(!config.botToken)return;
@@ -14,7 +15,7 @@ export async function initBot(){
   // Telegram's command menu supports only Latin characters, but the Ukrainian
   // text command /админ is also accepted when sent as a normal message.
   const adminAccess=async (ctx: any)=>{
-    if(String(ctx.from?.id)!=='5138418509') {
+    if(!config.adminIds.has(String(ctx.from?.id)) && !(await query('SELECT telegram_id FROM extra_admins WHERE telegram_id=$1',[String(ctx.from?.id)])).length) {
       await ctx.reply('⛔ Цей розділ доступний лише адміністратору.');
       return;
     }

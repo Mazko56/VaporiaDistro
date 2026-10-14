@@ -69,7 +69,7 @@ app.post('/api/auth/telegram',authLimiter,wrap(async(req,res)=>{
     throw new HttpError(401,message);
   }
   const tg=check.user;
-  const roles=config.adminIds.has(tg.id)?'admin':'customer';
+  const roles=config.adminIds.has(tg.id) || (await query('SELECT telegram_id FROM extra_admins WHERE telegram_id=$1',[tg.id])).length?'admin':'customer';
   await pool.query(`INSERT INTO users(telegram_id,username,first_name,photo_url,role) VALUES($1,$2,$3,$4,$5)
     ON CONFLICT(telegram_id) DO UPDATE SET username=EXCLUDED.username,first_name=EXCLUDED.first_name,photo_url=EXCLUDED.photo_url,role=EXCLUDED.role`,
     [tg.id,tg.username,tg.first_name,tg.photo_url,roles]);
@@ -85,7 +85,7 @@ app.post('/api/auth/dev',authLimiter,wrap(async(_req,res)=>{
   res.json({ok:true});
 }));
 app.post('/api/auth/logout',(_req,res)=>{res.clearCookie('vaporia_session',{path:'/'});res.json({ok:true});});
-app.get('/api/me',userGuard,(req,res)=>{const u=getUser(res);res.json({id:u.id,telegram_id:u.telegram_id,username:u.username,first_name:u.first_name,photo_url:u.photo_url,age_confirmed:u.age_confirmed,age_verified:u.age_verified,bonus_balance:u.bonus_balance,role:config.adminIds.has(String(u.telegram_id)) || (config.devAuth && String(u.telegram_id)==='999000111')?'admin':'customer'});});
+app.get('/api/me',userGuard,wrap(async(req,res)=>{const u=getUser(res);res.json({id:u.id,telegram_id:u.telegram_id,username:u.username,first_name:u.first_name,photo_url:u.photo_url,age_confirmed:u.age_confirmed,age_verified:u.age_verified,bonus_balance:u.bonus_balance,role:config.adminIds.has(String(u.telegram_id)) || (await query('SELECT telegram_id FROM extra_admins WHERE telegram_id=$1',[String(u.telegram_id)])).length>0 || (config.devAuth && String(u.telegram_id)==='999000111')?'admin':'customer'}); }));
 app.post('/api/me/confirm-age',userGuard,wrap(async(_req,res)=>{
   await pool.query('UPDATE users SET age_confirmed=true WHERE id=$1',[getUser(res).id]);res.json({ok:true});
 }));
@@ -206,9 +206,24 @@ app.get('/api/me/bonuses',userGuard,wrap(async(_req,res)=>res.json(await query('
 // --- ADMIN ---
 
 const adminOnly=[userGuard,(req:Request,res:Response,next:NextFunction)=>{
-  if(config.adminIds.has(String(getUser(res).telegram_id)) || (config.devAuth && String(getUser(res).telegram_id)==='999000111'))next();
-  else next(new HttpError(403,'Доступ заборонено'));
+  (async()=>{
+    const id=String(getUser(res).telegram_id);
+    if(config.adminIds.has(id) || (config.devAuth && id==='999000111') || (await query('SELECT telegram_id FROM extra_admins WHERE telegram_id=$1',[id])).length) return next();
+    throw new HttpError(403,'Доступ заборонено');
+  })().catch(next);
 }];
+const ownerOnly=[userGuard,(req:Request,res:Response,next:NextFunction)=>{
+  if(config.adminIds.has(String(getUser(res).telegram_id)))next(); else next(new HttpError(403,'Тільки власник може керувати адміністраторами'));
+}];
+app.get('/api/admin/access',ownerOnly,wrap(async(_req,res)=>res.json(await query('SELECT telegram_id,created_at FROM extra_admins ORDER BY created_at DESC'))));
+app.post('/api/admin/access',ownerOnly,wrap(async(req,res)=>{
+ const {telegram_id}=validate(z.object({telegram_id:z.string().regex(/^[1-9]\d{3,19}$/)}),req.body);
+ if(config.adminIds.has(telegram_id)) throw new HttpError(400,'Цей ID уже має доступ власника');
+ await query('INSERT INTO extra_admins(telegram_id) VALUES($1) ON CONFLICT DO NOTHING',[telegram_id]);res.status(201).json({ok:true});
+}));
+app.delete('/api/admin/access/:id',ownerOnly,wrap(async(req,res)=>{
+ await query('DELETE FROM extra_admins WHERE telegram_id=$1',[req.params.id]);res.json({ok:true});
+}));
 // Uploaded image content is checked by MIME + file signature, not client filename.
 const mediaParser=express.raw({type:['image/png','image/jpeg','image/webp'],limit:'4mb'});
 app.post('/api/admin/media',adminOnly,mediaParser,wrap(async(req,res)=>{
@@ -233,6 +248,25 @@ app.patch('/api/admin/brands/:id',adminOnly,wrap(async(req,res)=>{
   const result=await query('UPDATE brands SET slug=$1,name=$2,image_url=$3,banner_url=$4,sort_order=$5,is_active=$6 WHERE id=$7 RETURNING *',[...Object.values(b),req.params.id]);
   if(!result.length)throw new HttpError(404,'Виробника не знайдено');
   res.json(result[0]);
+}));
+// Soft removal protects existing order snapshots, cart references and foreign keys.
+app.delete('/api/admin/products/:id',adminOnly,wrap(async(req,res)=>{
+ const rows=await query('UPDATE products SET is_active=false WHERE id=$1 RETURNING id',[req.params.id]);
+ if(!rows.length)throw new HttpError(404,'Товар не знайдено');res.json({ok:true});
+}));
+app.delete('/api/admin/categories/:id',adminOnly,wrap(async(req,res)=>{
+ const rows=await query('UPDATE categories SET is_active=false WHERE id=$1 RETURNING id',[req.params.id]);
+ if(!rows.length)throw new HttpError(404,'Категорію не знайдено');
+ await query('UPDATE products SET is_active=false WHERE category_id=$1',[req.params.id]);res.json({ok:true});
+}));
+app.delete('/api/admin/brands/:id',adminOnly,wrap(async(req,res)=>{
+ const rows=await query('UPDATE brands SET is_active=false WHERE id=$1 RETURNING name',[req.params.id]);
+ if(!rows.length)throw new HttpError(404,'Виробника не знайдено');
+ await query('UPDATE products SET is_active=false WHERE brand=$1',[rows[0].name]);res.json({ok:true});
+}));
+app.delete('/api/admin/banners/:id',adminOnly,wrap(async(req,res)=>{
+ const rows=await query('UPDATE banners SET is_active=false WHERE id=$1 RETURNING id',[req.params.id]);
+ if(!rows.length)throw new HttpError(404,'Банер не знайдено');res.json({ok:true});
 }));
 app.get('/api/admin/overview',adminOnly,wrap(async(_req,res)=>{
   const r=await query(`SELECT (SELECT count(*) FROM orders)::int AS orders,

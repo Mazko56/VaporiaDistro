@@ -108,3 +108,5 @@ UPDATE banners SET image_url='/banners/bonus-v15.webp'
 WHERE image_url IN ('/banners/bonus.webp','/banners/bonus-v13.webp');
 UPDATE banners SET image_url='/banners/delivery-v15.webp'
 WHERE image_url IN ('/banners/delivery.webp','/banners/delivery-v13.webp');
+
+CREATE TABLE IF NOT EXISTS extra_admins (telegram_id TEXT PRIMARY KEY, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
