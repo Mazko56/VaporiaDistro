@@ -205,6 +205,39 @@ app.get('/api/me/orders',userGuard,wrap(async(_req,res)=>{
 app.get('/api/me/bonuses',userGuard,wrap(async(_req,res)=>res.json(await query('SELECT id,delta,description,created_at FROM bonus_ledger WHERE user_id=$1 ORDER BY id DESC LIMIT 100',[getUser(res).id]))));
 // --- ADMIN ---
 
+const adminSections=['overview','orders','products','categories','brands','banners','coupons','bonus','access'] as const;
+const sectionForAdminPath=(path:string)=>{
+ if(path.startsWith('/access')||path.startsWith('/permissions'))return 'access';
+ if(path.startsWith('/overview'))return 'overview';
+ if(path.startsWith('/orders'))return 'orders';
+ if(path.startsWith('/products')||path.startsWith('/media'))return 'products';
+ if(path.startsWith('/categories'))return 'categories';
+ if(path.startsWith('/brands'))return 'brands';
+ if(path.startsWith('/banners'))return 'banners';
+ if(path.startsWith('/coupons'))return 'coupons';
+ if(path.startsWith('/bonuses')||path.startsWith('/age'))return 'bonus';
+ return null;
+};
+const myAdminRights=async(id:string)=>{
+ if(config.adminIds.has(id))return [...adminSections];
+ const rows=await query('SELECT sections FROM extra_admins WHERE telegram_id=$1',[id]);
+ return rows.length ? (rows[0].sections as string[]).filter(x=>adminSections.includes(x as any)) : [];
+};
+// Enforce permissions on every /api/admin request, including direct API requests.
+app.use('/api/admin',userGuard,(req,res,next)=>{void (async()=>{
+ const id=String(getUser(res).telegram_id);
+ const granted=await myAdminRights(id);
+ if(!granted.length&&!config.adminIds.has(id))throw new HttpError(403,'Доступ заборонено');
+ if(req.path==='/permissions'){res.json({owner:config.adminIds.has(id),sections:granted});return;}
+ const section=sectionForAdminPath(req.path);
+ if(section&&!granted.includes(section))throw new HttpError(403,'Немає доступу до розділу');
+ if(section==='access'&&!config.adminIds.has(id)&&req.method==='DELETE'){
+   // Sub-admins cannot revoke other admins without access management rights.
+   throw new HttpError(403,'Відкликання доступу дозволене лише власнику');
+ }
+ next();
+ })().catch(next);
+});
 const adminOnly=[userGuard,(req:Request,res:Response,next:NextFunction)=>{
   (async()=>{
     const id=String(getUser(res).telegram_id);
@@ -215,11 +248,20 @@ const adminOnly=[userGuard,(req:Request,res:Response,next:NextFunction)=>{
 const ownerOnly=[userGuard,(req:Request,res:Response,next:NextFunction)=>{
   if(config.adminIds.has(String(getUser(res).telegram_id)))next(); else next(new HttpError(403,'Тільки власник може керувати адміністраторами'));
 }];
-app.get('/api/admin/access',ownerOnly,wrap(async(_req,res)=>res.json(await query('SELECT telegram_id,created_at FROM extra_admins ORDER BY created_at DESC'))));
-app.post('/api/admin/access',ownerOnly,wrap(async(req,res)=>{
- const {telegram_id}=validate(z.object({telegram_id:z.string().regex(/^[1-9]\d{3,19}$/)}),req.body);
- if(config.adminIds.has(telegram_id)) throw new HttpError(400,'Цей ID уже має доступ власника');
- await query('INSERT INTO extra_admins(telegram_id) VALUES($1) ON CONFLICT DO NOTHING',[telegram_id]);res.status(201).json({ok:true});
+app.get('/api/admin/access',adminOnly,wrap(async(req,res)=>{
+ const id=String(getUser(res).telegram_id);const mine=await myAdminRights(id);
+ const admins=await query('SELECT telegram_id,sections,created_at FROM extra_admins ORDER BY created_at DESC');
+ res.json(admins.filter(a=>config.adminIds.has(id)||a.sections.every((x:string)=>mine.includes(x))));
+}));
+app.post('/api/admin/access',adminOnly,wrap(async(req,res)=>{
+ const {telegram_id,sections}=validate(z.object({telegram_id:z.string().regex(/^[1-9]\d{3,19}$/),sections:z.array(z.enum(adminSections)).min(1)}),req.body);
+ const id=String(getUser(res).telegram_id);const mine=await myAdminRights(id);
+ if(config.adminIds.has(telegram_id))throw new HttpError(400,'Цей ID є власником');
+ if(sections.some(x=>!mine.includes(x)))throw new HttpError(403,'Не можна надавати відсутні у вас права');
+ const target=await query('SELECT sections FROM extra_admins WHERE telegram_id=$1',[telegram_id]);
+ if(!config.adminIds.has(id)&&target.length&&target[0].sections.some((x:string)=>!mine.includes(x)))throw new HttpError(403,'Неможливо редагувати адміністратора з ширшими правами');
+ await query('INSERT INTO extra_admins(telegram_id,sections) VALUES($1,$2::text[]) ON CONFLICT(telegram_id) DO UPDATE SET sections=EXCLUDED.sections',[telegram_id,sections]);
+ res.status(201).json({ok:true});
 }));
 app.delete('/api/admin/access/:id',ownerOnly,wrap(async(req,res)=>{
  await query('DELETE FROM extra_admins WHERE telegram_id=$1',[req.params.id]);res.json({ok:true});
