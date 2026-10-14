@@ -1,0 +1,45 @@
+import {tx} from './db';
+
+type Model = {slug:string;name:string;price:number;photo:string;summary:string;specs:[string,string][];colors:string[]};
+const models:Model[]=[
+ {slug:'photo-set-9051',name:'VAPORESSO XROS MINI',price:64900,photo:'/catalog-import/product-9051.webp',summary:'Vaporesso XROS Mini Pod Kit — зручна та компактна pod-система з лаконічним оформленням і продуманим функціоналом для щоденного використання.',specs:[['🔋 Акумулятор','1000 мАг, вбудований, до 2 днів автономності'],['💨 Сумісність','Картриджі серії XROS, опір від 0.6 Ω до 1.2 Ω'],['🧠 Активація','Автоматична від затяжки, без кнопок'],['🔌 Зарядка','USB Type-C'],['💧 Картридж','XROS Series, 2 мл'],['📦 Комплектація','Батарейний блок XROS Mini, 1 картридж 2 мл, кабель USB Type-C, посібник користувача']],colors:['Aurora','Baby Blue','Baby Pink','Baby Purple','Cosmic Grey','Dark Indigo','Gold','Matte Silver','Orange Red','Sierra Blue','Space Black','Spring Green','Violet','Vitality']},
+ {slug:'photo-set-9053',name:'VAPORESSO XROS 3 MINI',price:74900,photo:'/catalog-import/product-9053.webp',summary:'Vaporesso Xros 3 Mini — компактна і стильна pod-система, що поєднує сучасні технології, елегантний дизайн та простоту використання.',specs:[['💧 Ємність картриджа','2 мл'],['🔋 Акумулятор','1000 мАг, до 48 годин автономності'],['⚙️ Потужність','Автоматичне регулювання 11–16 Вт'],['💨 Опір картриджів','0.6 / 0.8 / 1.0 / 1.2 Ω, для MTL та RDL'],['🧱 Матеріал корпусу','Алюмінієвий сплав'],['🔌 Зарядка','USB Type-C, повна зарядка менш ніж за 1 годину']],colors:['Aqua Green','Icy Silver','Lemon Yellow','Lilac Purple','Navy Blue','Rose Pink','Sky Blue','Space Grey']},
+ {slug:'photo-set-9058',name:'VAPORESSO XROS PRO',price:119000,photo:'/catalog-import/product-9058.webp',summary:'Vaporesso XROS Pro — інноваційна pod-система зі стильним дизайном, регульованою потужністю до 30 Вт і насиченою смакопередачею завдяки картриджам XROS Mesh Pod.',specs:[['💧 Ємність картриджа','3 мл'],['🔋 Акумулятор','1200 мАг'],['⚙️ Потужність','5–30 Вт'],['💨 Опір картриджів','0.4 Ω / 0.8 Ω, XROS Mesh Pod'],['🧱 Матеріал корпусу','Алюмінієвий сплав'],['🔌 Зарядка','USB Type-C, швидка зарядка 2A'],['📐 Розміри','119.7 × 24.4 × 18.45 мм'],['✨ Технології','Corex Heating, passthrough'],['🔋 Індикація','LED: зелений 70–100%, синій 30–70%, червоний 0–30%']],colors:['Green','Orange','Pink','Silver']},
+ {slug:'photo-set-9057',name:'VAPORESSO XROS 5',price:119900,photo:'/catalog-import/product-9057.webp',summary:'Vaporesso Xros 5 — сучасна pod-система, що поєднує стильний дизайн, зручність використання та розширений функціонал для новачків і досвідчених користувачів.',specs:[['🔋 Акумулятор','1500 мАг'],['⚙️ Потужність','5–30 Вт, з регулюванням'],['🔌 Зарядка','USB Type-C, до 3A, до 80% приблизно за 20 хвилин'],['📺 Дисплей','0.88″ TFT, кольоровий, 6 тем оформлення'],['💧 Картридж','2 мл або 3 мл, серія COREX 3.0'],['💨 Опір випарників','0.4 Ω – 1.2 Ω'],['🌬️ Затяжка','Регульований обдув від MTL до RDL'],['🧠 Активація','Автоматична від затяжки або кнопкою'],['🧱 Матеріали корпусу','Алюмінієвий сплав та пластик'],['📐 Габарити','120.8 × 24.5 × 14.5 мм']],colors:['Blue Silk','Coral Red','Grey Leather','Jade Green','Opal Pink','Red Leather','Violet Silk']},
+ {slug:'photo-set-9060',name:'VAPORESSO XROS 5 MINI',price:84900,photo:'/catalog-import/product-9060.webp',summary:'Vaporesso Xros 5 Mini — спрощена версія Xros 5, що робить акцент на зручності, портативності та чистій смакопередачі без зайвих налаштувань.',specs:[['💧 Ємність картриджа','2 мл / 3 мл, залежно від версії'],['🔋 Акумулятор','1500 мАг'],['⚙️ Потужність','До 30 Вт'],['💨 Опір картриджів','0.4 / 0.6 / 0.8 / 1.0 / 1.2 Ω, сумісність з усією лінійкою XROS'],['🧱 Матеріал корпусу','Алюмінієвий сплав + пластикові панелі'],['🔌 Зарядка','USB Type-C, швидка зарядка 2A'],['🔋 Індикація','Tidal LED, 4 рівні заряду'],['📐 Розміри і вага','≈110.5 × 24.2 × 14.1 мм, ≈65.2 г'],['🌬️ Обдув','Повзунок AFC / Sliding Airflow']],colors:['Sky Blue','Black / Cool Black','Purple','Flowing Pink','Flowing Blue','Flowing Green','Pastel Crystal','Carbon Black','Titanium Silver','Rose Red','Mist Black','Mist White','Retro Orange']},
+ {slug:'photo-set-9062',name:'VAPORESSO XROS 6',price:129900,photo:'/catalog-import/product-9062.webp',summary:'Vaporesso XROS 6 — шосте покоління флагманської лінійки бренду з кольоровим екраном, ручним налаштуванням потужності та швидкою зарядкою.',specs:[['⚙️ Максимальна потужність','До 30 Вт, з регулюванням і режимами'],['🔋 Акумулятор','1800 мАг'],['🔌 Зарядка','USB Type-C, швидка зарядка 3A / 9V, до 50% приблизно за 10 хв'],['📺 Дисплей','0.88″ TFT, кольоровий'],['💧 Об’єм картриджа','3 мл'],['✨ Технологія нагріву','COREX 3.0'],['🌬️ Обдув','VENTURI Airflow, від MTL до RDL'],['🛡️ Захист','SSS Leak-Resistant Tech 2.0'],['🧠 Активація','Автоматична від затяжки та кнопкою'],['💨 Сумісність','Усі картриджі серії XROS, 0.4–1.2 Ω'],['📐 Габарити','122 × 24.5 × 14.5 мм'],['⚖️ Вага','Приблизно 72.1–161.6 г, залежно від матеріалу']],colors:['Abyssal Blue','Carbon Fiber Gray','Dreamy Pink','Silk Brown','Silk Gray']},
+ {slug:'photo-set-9064',name:'VAPORESSO XROS 6 MINI',price:89900,photo:'/catalog-import/product-9064.webp',summary:'Vaporesso XROS 6 Mini — компактна версія серії XROS для тих, хто шукає просте керування, стабільну автономність та сумісність із картриджами XROS.',specs:[['🔋 Акумулятор','Вбудований, компактний формат для щоденного використання'],['💨 Сумісність','Картриджі серії XROS'],['🧠 Активація','Автоматична від затяжки'],['🔌 Зарядка','USB Type-C'],['💧 Картридж','Сумісний формат XROS Pod'],['ℹ️ Примітка','Опис моделі можна додатково уточнити в адмінпанелі при потребі']],colors:['Sky Blue','Black / Cool Black','Purple','Flowing Pink','Flowing Blue','Flowing Green','Pastel Crystal','Carbon Black','Titanium Silver','Rose Red','Mist Black','Mist White','Retro Orange']},
+];
+const normalize=(s:string)=>s.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9а-яіїєґ]+/giu,'');
+export async function enrichCatalogV28(){
+ await tx(async c=>{
+  await c.query('CREATE TABLE IF NOT EXISTS catalog_content_versions (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())');
+  const marker=await c.query("INSERT INTO catalog_content_versions(version) VALUES('v2.8-vaporesso-xros-models') ON CONFLICT DO NOTHING RETURNING version");
+  if(!marker.rowCount)return;
+  for(const model of models){
+   const description=model.summary+'\nХарактеристики:\n'+model.specs.map(([k,v])=>k+'|'+v).join('\n');
+   await c.query(`INSERT INTO products(category_id,slug,name,brand,subtitle,description,base_price,compare_at_price,image_url,is_active)
+     SELECT id,$1,$2,'VAPORESSO','POD-система',$3,$4,NULL,$5,true FROM categories WHERE slug='pod-systemy'
+     ON CONFLICT(slug) DO NOTHING`,[model.slug,model.name,description,model.price,model.photo]);
+   await c.query(`UPDATE products SET category_id=(SELECT id FROM categories WHERE slug='pod-systemy'),name=$1,brand='VAPORESSO',subtitle='POD-система',description=$2,base_price=$3,compare_at_price=NULL,image_url=$4,is_active=true WHERE slug=$5`,[model.name,description,model.price,model.photo,model.slug]);
+   const item=(await c.query('SELECT id FROM products WHERE slug=$1',[model.slug])).rows[0];
+   if(!item) throw Error('VAPORESSO product missing: '+model.slug);
+   const existing=(await c.query('SELECT id,label FROM variants WHERE product_id=$1 ORDER BY id',[item.id])).rows;
+   const used=new Set<number>();
+   for(let i=0;i<model.colors.length;i++){
+    const label=model.colors[i];
+    const old=existing.find((v:any)=>!used.has(v.id)&&normalize(v.label)===normalize(label));
+    if(old){used.add(old.id);await c.query('UPDATE variants SET label=$1,stock=100,is_active=true WHERE id=$2',[label,old.id]);}
+    else{const sku=`v28-${model.slug}-${i+1}`;const row=await c.query(`INSERT INTO variants(product_id,label,sku,stock,is_active) VALUES($1,$2,$3,100,true) ON CONFLICT(sku) DO UPDATE SET label=EXCLUDED.label,stock=100,is_active=true RETURNING id`,[item.id,label,sku]);used.add(row.rows[0].id);}
+   }
+   for(const old of existing)if(!used.has(old.id))await c.query('UPDATE variants SET is_active=false WHERE id=$1',[old.id]);
+   const count=(await c.query('SELECT COUNT(*)::int AS n FROM variants WHERE product_id=$1 AND is_active',[item.id])).rows[0].n;
+   if(count!==model.colors.length)throw Error(`VAPORESSO color mismatch ${model.slug}: ${count}`);
+  }
+  const slugs=models.map(m=>m.slug);
+  await c.query("UPDATE products SET is_active=false WHERE UPPER(TRIM(brand))='VAPORESSO' AND NOT(slug=ANY($1::text[])) AND category_id=(SELECT id FROM categories WHERE slug='pod-systemy')",[slugs]);
+  const count=(await c.query("SELECT COUNT(*)::int AS n FROM products WHERE UPPER(TRIM(brand))='VAPORESSO' AND is_active AND category_id=(SELECT id FROM categories WHERE slug='pod-systemy')")).rows[0].n;
+  if(count!==7)throw Error('Expected 7 VAPORESSO POD products, found '+count);
+ });
+ console.log('Catalog v2.8: 7 VAPORESSO XROS models updated, variants set to 100 each');
+}
