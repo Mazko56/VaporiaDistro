@@ -9,6 +9,7 @@ import {enrichCatalogV22} from './enrichCatalogV22';
 import {enrichCatalogV23} from './enrichCatalogV23';
 import {enrichCatalogV24} from './enrichCatalogV24';
 import {enrichCatalogV25} from './enrichCatalogV25';
+import {enrichCatalogV26} from './enrichCatalogV26';
 const categories=[
   ['ridyny','Рідина-ароматизатори','Преміальні смаки','droplets',2],
   ['pod-systemy','POD-Системи','Сучасні пристрої','zap',1],
@@ -69,6 +70,7 @@ export async function seed(){
   await enrichCatalogV23();
   await enrichCatalogV24();
   await enrichCatalogV25();
+  await enrichCatalogV26();
   console.log('Demo catalog initialized (existing edits preserved)');
 }
 if(require.main===module) migrate().then(seed).then(()=>pool.end()).catch(e=>{console.error(e);process.exit(1);});
