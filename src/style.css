@@ -181,3 +181,6 @@ em{font-style:normal;color:#6a9dff}.button{display:inline-flex;align-items:cente
 
 /* Nova Poshta address suggestions */
 .np-suggestions{display:flex;flex-direction:column;gap:2px;max-height:220px;overflow-y:auto;border:1px solid rgba(165,175,220,.38);border-radius:12px;background:#131729;margin:-8px 0 14px}.np-suggestions button{width:100%;border:0;border-bottom:1px solid rgba(165,175,220,.12);background:transparent;color:#f2f3fa;text-align:left;padding:12px 14px;font:inherit}.np-suggestions button:active{background:rgba(110,140,255,.18)}.checkout-panel select{max-width:100%;width:100%;padding:13px 12px;border-radius:11px;background:#151929;color:#f2f3fa;border:1px solid rgba(165,175,220,.35)}
+
+/* Admin order archive action */
+.order-head-actions{display:flex;align-items:center;gap:8px}.order-delete-button{border:1px solid #7b3b50;background:#3b2330;color:#ffb4c2;border-radius:8px;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}.order-delete-button:active{transform:scale(.96)}

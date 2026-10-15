@@ -112,3 +112,6 @@ WHERE image_url IN ('/banners/delivery.webp','/banners/delivery-v13.webp');
 CREATE TABLE IF NOT EXISTS extra_admins (telegram_id TEXT PRIMARY KEY, created_at TIMESTAMPTZ NOT NULL DEFAULT now());
 
 ALTER TABLE extra_admins ADD COLUMN IF NOT EXISTS sections TEXT[] NOT NULL DEFAULT ARRAY['overview','orders','products','categories','brands','banners','coupons','bonus','access']::text[];
+
+-- 3.3.8: remove orders from admin queue without destroying accounting or bonuses.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS admin_hidden BOOLEAN NOT NULL DEFAULT FALSE;

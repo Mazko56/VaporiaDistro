@@ -345,11 +345,17 @@ app.get('/api/admin/overview',adminOnly,wrap(async(_req,res)=>{
 }));
 app.get('/api/admin/orders',adminOnly,wrap(async(req,res)=>{
   const status=typeof req.query.status==='string'?req.query.status:'';
-  const params:any[]=[],where=status && ['pending','confirmed','shipped','completed','received','cancelled'].includes(status)?' WHERE o.status=$1':'';
-  if(where)params.push(status);
+  const params:any[]=[],where=status && ['pending','confirmed','shipped','completed','received','cancelled'].includes(status)?' WHERE o.admin_hidden=FALSE AND o.status=$1':' WHERE o.admin_hidden=FALSE';
+  if(status && ['pending','confirmed','shipped','completed','received','cancelled'].includes(status))params.push(status);
   res.json(await query(`SELECT o.*,u.telegram_id,u.username,
    COALESCE((SELECT json_agg(json_build_object('product_name',i.product_name,'variant_label',i.variant_label,'quantity',i.quantity,'line_total',i.line_total) ORDER BY i.id) FROM order_items i WHERE i.order_id=o.id),'[]'::json) AS items
    FROM orders o JOIN users u ON u.id=o.user_id ${where} ORDER BY o.created_at DESC LIMIT 200`,params));
+}));
+// Archive only: keep order_items and bonus_ledger intact for financial history.
+app.delete('/api/admin/orders/:id',adminOnly,wrap(async(req,res)=>{
+  const result=await query('UPDATE orders SET admin_hidden=TRUE,updated_at=now() WHERE id=$1 AND admin_hidden=FALSE RETURNING id',[req.params.id]);
+  if(!result.length)throw new HttpError(404,'Замовлення не знайдено або вже видалено');
+  res.json({ok:true});
 }));
 app.patch('/api/admin/orders/:id/status',adminOnly,wrap(async(req,res)=>{
   const {status}=validate(z.object({status:z.enum(['pending','confirmed','shipped','received','cancelled'])}),req.body);
