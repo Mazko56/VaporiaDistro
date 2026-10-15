@@ -225,9 +225,9 @@ app.post('/api/checkout',userGuard,rateLimit({windowMs:60_000,limit:8}),wrap(asy
 }));
 app.get('/api/me/orders',userGuard,wrap(async(_req,res)=>{
   const orders=await query(`SELECT o.created_at,o.status,o.customer_name,o.phone,o.delivery_method,o.city,o.shipping_details,o.payment_method,o.bonus_used,o.bonus_awarded,o.total,COALESCE((SELECT json_agg(json_build_object('product_name',oi.product_name,'variant_label',oi.variant_label,'quantity',oi.quantity,'unit_price',oi.unit_price) ORDER BY oi.id) FROM order_items oi WHERE oi.order_id=o.id),'[]'::json) AS items
-  FROM orders o WHERE o.user_id=$1 ORDER BY o.created_at DESC LIMIT 60`,[getUser(res).id]);res.json(orders);
+  FROM orders o WHERE o.user_id=$1 AND o.admin_hidden=FALSE ORDER BY o.created_at DESC LIMIT 60`,[getUser(res).id]);res.json(orders);
 }));
-app.get('/api/me/bonuses',userGuard,wrap(async(_req,res)=>res.json(await query("SELECT id,delta,btrim(regexp_replace(description, '([№#][[:space:]]*[0-9]+|[Зз]амовлення[[:space:]]+[0-9]+)', '', 'g')) AS description,created_at FROM bonus_ledger WHERE user_id=$1 ORDER BY id DESC LIMIT 100",[getUser(res).id]))));
+app.get('/api/me/bonuses',userGuard,wrap(async(_req,res)=>res.json(await query("SELECT id,delta,btrim(regexp_replace(description, '([№#][[:space:]]*[0-9]+|[Зз]амовлення[[:space:]]+[0-9]+)', '', 'g')) AS description,created_at FROM bonus_ledger WHERE user_id=$1 AND (order_id IS NULL OR EXISTS (SELECT 1 FROM orders o WHERE o.id=bonus_ledger.order_id AND o.admin_hidden=FALSE)) ORDER BY id DESC LIMIT 100",[getUser(res).id]))));
 // --- ADMIN ---
 
 const adminSections=['overview','orders','products','categories','brands','banners','coupons','bonus','access'] as const;
@@ -336,11 +336,11 @@ app.delete('/api/admin/banners/:id',adminOnly,wrap(async(req,res)=>{
  if(!rows.length)throw new HttpError(404,'Банер не знайдено');res.json({ok:true});
 }));
 app.get('/api/admin/overview',adminOnly,wrap(async(_req,res)=>{
-  const r=await query(`SELECT (SELECT count(*) FROM orders)::int AS orders,
-  (SELECT count(*) FROM orders WHERE status='pending')::int AS pending,
+  const r=await query(`SELECT (SELECT count(*) FROM orders WHERE admin_hidden=FALSE)::int AS orders,
+  (SELECT count(*) FROM orders WHERE status='pending' AND admin_hidden=FALSE)::int AS pending,
   (SELECT count(*) FROM products WHERE is_active)::int AS products,
-  (SELECT count(*) FROM users)::int AS customers,
-  (SELECT COALESCE(sum(total),0) FROM orders WHERE status IN ('completed','received'))::int AS revenue`);
+  (SELECT count(DISTINCT user_id) FROM orders WHERE admin_hidden=FALSE)::int AS customers,
+  (SELECT COALESCE(sum(total),0) FROM orders WHERE status IN ('completed','received') AND admin_hidden=FALSE)::int AS revenue`);
   res.json(r[0]);
 }));
 app.get('/api/admin/orders',adminOnly,wrap(async(req,res)=>{
@@ -351,16 +351,33 @@ app.get('/api/admin/orders',adminOnly,wrap(async(req,res)=>{
    COALESCE((SELECT json_agg(json_build_object('product_name',i.product_name,'variant_label',i.variant_label,'quantity',i.quantity,'line_total',i.line_total) ORDER BY i.id) FROM order_items i WHERE i.order_id=o.id),'[]'::json) AS items
    FROM orders o JOIN users u ON u.id=o.user_id ${where} ORDER BY o.created_at DESC LIMIT 200`,params));
 }));
-// Archive only: keep order_items and bonus_ledger intact for financial history.
+// Permanently remove the order and its linked records in one transaction.
+// Reconcile inventory and the customer's bonus balance with the removed activity.
 app.delete('/api/admin/orders/:id',adminOnly,wrap(async(req,res)=>{
-  const result=await query('UPDATE orders SET admin_hidden=TRUE,updated_at=now() WHERE id=$1 AND admin_hidden=FALSE RETURNING id',[req.params.id]);
-  if(!result.length)throw new HttpError(404,'Замовлення не знайдено або вже видалено');
+  await tx(async c=>{
+    const order=(await c.query('SELECT * FROM orders WHERE id=$1 AND admin_hidden=FALSE FOR UPDATE',[req.params.id])).rows[0];
+    if(!order)throw new HttpError(404,'Замовлення не знайдено або вже видалено');
+    const ledgers=(await c.query('SELECT COALESCE(SUM(delta),0)::int AS delta FROM bonus_ledger WHERE order_id=$1',[order.id])).rows[0];
+    const bonusDelta=Number(ledgers.delta);
+    if(bonusDelta!==0){
+      await c.query('UPDATE users SET bonus_balance=GREATEST(0,bonus_balance-$1) WHERE id=$2',[bonusDelta,order.user_id]);
+    }
+    // Cancelled orders have already returned their stock and coupon usage.
+    if(order.status!=='cancelled'){
+      await c.query(`UPDATE variants v SET stock=v.stock+i.quantity
+        FROM order_items i WHERE i.order_id=$1 AND i.variant_id=v.id`,[order.id]);
+      if(order.coupon_code)await c.query('UPDATE coupons SET uses=GREATEST(0,uses-1) WHERE code=$1',[order.coupon_code]);
+    }
+    await c.query('DELETE FROM bonus_ledger WHERE order_id=$1',[order.id]);
+    // order_items are deleted through ON DELETE CASCADE.
+    await c.query('DELETE FROM orders WHERE id=$1',[order.id]);
+  });
   res.json({ok:true});
 }));
 app.patch('/api/admin/orders/:id/status',adminOnly,wrap(async(req,res)=>{
   const {status}=validate(z.object({status:z.enum(['pending','confirmed','shipped','received','cancelled'])}),req.body);
   const result=await tx(async c=>{
-    const old=(await c.query('SELECT o.*,u.telegram_id FROM orders o JOIN users u ON u.id=o.user_id WHERE o.id=$1 FOR UPDATE OF o',[req.params.id])).rows[0];
+    const old=(await c.query('SELECT o.*,u.telegram_id FROM orders o JOIN users u ON u.id=o.user_id WHERE o.id=$1 AND o.admin_hidden=FALSE FOR UPDATE OF o',[req.params.id])).rows[0];
     if(!old)throw new HttpError(404,'Замовлення не знайдено');
     if(old.status===status)return old;
     if(!canTransitionOrder(old.status as OrderStatus,status))throw new HttpError(400,'Неможливий перехід статусу');
