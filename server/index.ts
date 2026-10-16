@@ -134,7 +134,7 @@ app.get('/api/products',wrap(async(req,res)=>{
   if(category){params.push(category);where+=` AND c.slug=$${params.length}`;}
   if(search){params.push(`%${search}%`);where+=` AND (p.name ILIKE $${params.length} OR p.brand ILIKE $${params.length} OR p.subtitle ILIKE $${params.length})`;}
   if(brand){params.push(brand);where+=` AND REPLACE(LOWER(TRIM(p.brand)),' ','')=REPLACE(LOWER(TRIM($${params.length})),' ','')`;}
-  res.json(await query(`${catalogProduct}${where} ORDER BY p.created_at DESC,p.id DESC LIMIT 100`,params));
+  res.json(await query(`${catalogProduct}${where} ORDER BY ${brand ? 'p.brand_position' : 'p.category_position'} ASC NULLS LAST,p.created_at DESC,p.id DESC LIMIT 100`,params));
 }));
 app.get('/api/products/:slug',wrap(async(req,res)=>{
   const p=await query(`${catalogProduct} WHERE p.slug=$1 AND p.is_active=true AND c.is_active=true`,[req.params.slug]);
@@ -407,9 +407,19 @@ app.patch('/api/admin/categories/:id',adminOnly,wrap(async(req,res)=>{
 }));
 app.get('/api/admin/products',adminOnly,wrap(async(_req,res)=>res.json(await query(`${catalogProduct} ORDER BY p.id DESC LIMIT 500`))));
 const variantSchema=z.object({id:z.number().int().positive().optional(),label:z.string().trim().min(1).max(100),sku:z.string().trim().min(1).max(90),stock:z.number().int().min(0).max(100000),price_override:z.number().int().nonnegative().nullable().default(null),is_active:z.boolean().default(true)});
-const productSchema=z.object({category_id:z.number().int().positive(),slug:z.string().regex(/^[a-z0-9-]+$/).min(2).max(100),name:z.string().trim().min(2).max(180),brand:z.string().max(100).default(''),subtitle:z.string().max(180).default(''),description:z.string().max(6000).default(''),image_url:z.string().max(600).default(''),gallery:z.array(z.string().max(600)).max(12).default([]),base_price:z.number().int().nonnegative(),compare_at_price:z.number().int().nonnegative().nullable().default(null),badge:z.string().max(30).default(''),is_active:z.boolean().default(true),variants:z.array(variantSchema).min(1).max(80)});
+const productSchema=z.object({category_id:z.number().int().positive(),slug:z.string().regex(/^[a-z0-9-]+$/).min(2).max(100),name:z.string().trim().min(2).max(180),brand:z.string().max(100).default(''),subtitle:z.string().max(180).default(''),description:z.string().max(6000).default(''),image_url:z.string().max(600).default(''),gallery:z.array(z.string().max(600)).max(12).default([]),base_price:z.number().int().nonnegative(),compare_at_price:z.number().int().nonnegative().nullable().default(null),badge:z.string().max(30).default(''),is_active:z.boolean().default(true),category_position:z.number().int().min(1).max(100000).optional(),brand_position:z.number().int().min(1).max(100000).optional(),variants:z.array(variantSchema).min(1).max(80)});
+// Reposition in one group. Everyone after the inserted product shifts one place.
+async function resequenceProducts(c:any, column:'category_position'|'brand_position', groupColumn:'category_id'|'brand', groupValue:number|string, movingId:number|null, target:number){
+  const found=await c.query(`SELECT id FROM products WHERE ${groupColumn}=$1 AND is_active=true ORDER BY ${column} ASC NULLS LAST, created_at DESC,id DESC FOR UPDATE`,[groupValue]);
+  const ids:number[]=found.rows.map((r:{id:number})=>r.id).filter((n:number)=>n!==movingId);
+  if(movingId!==null){ids.splice(Math.min(Math.max(1,target)-1,ids.length),0,movingId);}
+  for(let i=0;i<ids.length;i++)await c.query(`UPDATE products SET ${column}=$1 WHERE id=$2 AND ${column} IS DISTINCT FROM $1`,[i+1,ids[i]]);
+}
 async function saveProduct(p:z.infer<typeof productSchema>,id?:number){
   return tx(async c=>{
+    // Serialize concurrent manual order changes to avoid duplicate positions.
+    await c.query('SELECT pg_advisory_xact_lock($1)',[741908]);
+    const previous=id?(await c.query('SELECT category_id,brand FROM products WHERE id=$1',[id])).rows[0]:null;
     const row=id?(await c.query(`UPDATE products SET category_id=$1,slug=$2,name=$3,brand=$4,subtitle=$5,description=$6,image_url=$7,gallery=$8::jsonb,base_price=$9,compare_at_price=$10,badge=$11,is_active=$12 WHERE id=$13 RETURNING id`,[p.category_id,p.slug,p.name,p.brand,p.subtitle,p.description,p.image_url,JSON.stringify(p.gallery),p.base_price,p.compare_at_price,p.badge,p.is_active,id])).rows[0]:
       (await c.query(`INSERT INTO products(category_id,slug,name,brand,subtitle,description,image_url,gallery,base_price,compare_at_price,badge,is_active)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12) RETURNING id`,[p.category_id,p.slug,p.name,p.brand,p.subtitle,p.description,p.image_url,JSON.stringify(p.gallery),p.base_price,p.compare_at_price,p.badge,p.is_active])).rows[0];
@@ -423,6 +433,10 @@ async function saveProduct(p:z.infer<typeof productSchema>,id?:number){
     }
     // Removed variants are deactivated (never deleted, so historical orders keep their snapshot).
     await c.query('UPDATE variants SET is_active=false WHERE product_id=$1 AND NOT(id=ANY($2::int[]))',[row.id,seen]);
+    if(previous && previous.category_id!==p.category_id)await resequenceProducts(c,'category_position','category_id',previous.category_id,null,1);
+    if(previous && previous.brand!==p.brand)await resequenceProducts(c,'brand_position','brand',previous.brand,null,1);
+    await resequenceProducts(c,'category_position','category_id',p.category_id,row.id,p.category_position??100000);
+    await resequenceProducts(c,'brand_position','brand',p.brand,row.id,p.brand_position??100000);
     return row.id;
   });
 }

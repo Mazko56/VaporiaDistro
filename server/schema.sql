@@ -15,6 +15,11 @@ CREATE TABLE IF NOT EXISTS products (
   base_price INTEGER NOT NULL CHECK(base_price>=0), compare_at_price INTEGER CHECK(compare_at_price IS NULL OR compare_at_price>=0),
   badge TEXT NOT NULL DEFAULT '', is_active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Separate ordering for category and manufacturer; NULL preserves historic newest-first sorting.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS category_position INTEGER;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS brand_position INTEGER;
+CREATE INDEX IF NOT EXISTS idx_products_category_position ON products(category_id,category_position);
+CREATE INDEX IF NOT EXISTS idx_products_brand_position ON products(brand,brand_position);
 CREATE TABLE IF NOT EXISTS variants (
   id SERIAL PRIMARY KEY, product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   label TEXT NOT NULL, sku TEXT UNIQUE NOT NULL, price_override INTEGER CHECK(price_override IS NULL OR price_override>=0),
