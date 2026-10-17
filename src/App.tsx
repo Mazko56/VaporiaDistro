@@ -102,7 +102,7 @@ function CategoryPage(){
  const activeBrands=(brands||[]).filter(b=>(data||[]).some(p=>normalizeBrand(p.brand)===normalizeBrand(b.name)));
  const orphanBrands=Array.from(new Set((data||[]).map(p=>p.brand.trim()).filter(Boolean))).filter(name=>!activeBrands.some(b=>normalizeBrand(b.name)===normalizeBrand(name)));
  const names=[...activeBrands.map(b=>b.name),...orphanBrands];
- const products=(data||[]).filter(p=>!selectedBrand||normalizeBrand(p.brand)===normalizeBrand(selectedBrand));
+ const products=(data||[]).filter(p=>!selectedBrand||normalizeBrand(p.brand)===normalizeBrand(selectedBrand)).sort((a,b)=>selectedBrand?((a.brand_position??999999)-(b.brand_position??999999)||a.id-b.id):((a.category_position??999999)-(b.category_position??999999)||a.id-b.id));
  return <div className="category-products-page"><PageTitle subtitle={`${data?.length||0} товарів у категорії`}>{category?.name||'Товари'}</PageTitle>
  {loading?<Loading/>:<>
  <div className="brand-filter-scroller" role="group" aria-label="Фільтр за виробником">
@@ -114,7 +114,7 @@ function CategoryPage(){
  </div>;
 }
 function BrandPage(){const {slug}=useParams(),{data:brands}=useFetch<Brand[]>('/brands'),{data:allProducts,loading}=useFetch<Product[]>('/products');
- const products=allProducts?.filter(p=>p.brand.toLocaleLowerCase('uk-UA').replace(/[^\p{L}\p{N}]/gu,'')===(brands?.find(b=>b.slug===slug)?.name||'').toLocaleLowerCase('uk-UA').replace(/[^\p{L}\p{N}]/gu,''));
+ const products=allProducts?.filter(p=>p.brand.toLocaleLowerCase('uk-UA').replace(/[^\p{L}\p{N}]/gu,'')===(brands?.find(b=>b.slug===slug)?.name||'').toLocaleLowerCase('uk-UA').replace(/[^\p{L}\p{N}]/gu,'')).sort((a,b)=>(a.brand_position??999999)-(b.brand_position??999999)||a.id-b.id);
  const current=brands?.find(b=>b.slug===slug);if(!brands)return <Loading/>;if(!current)return <Empty title="Виробника не знайдено" link="/" linkText="На головну"/>;return <div><PageTitle subtitle="Товари виробника">{current?.name||'Виробник'}</PageTitle>
  {(current?.banner_url||current?.image_url)&&<div className={`brand-detail-hero ${current.banner_url?'has-wide-banner':''}`}><img src={current.banner_url||current.image_url} alt={`${current.name} — банер`}/></div>}
  {loading?<Loading/>:products?.length?<div className="product-grid">{products.map(p=><ProductCard key={p.id} product={p}/>)}</div>:<Empty icon={Package} title="Поки немає товарів цього виробника" subtitle="Додайте товари з цією назвою бренду в адмінпанелі" link="/" linkText="На головну"/>}</div>;}

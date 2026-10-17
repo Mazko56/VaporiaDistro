@@ -134,7 +134,7 @@ app.get('/api/products',wrap(async(req,res)=>{
   if(category){params.push(category);where+=` AND c.slug=$${params.length}`;}
   if(search){params.push(`%${search}%`);where+=` AND (p.name ILIKE $${params.length} OR p.brand ILIKE $${params.length} OR p.subtitle ILIKE $${params.length})`;}
   if(brand){params.push(brand);where+=` AND REPLACE(LOWER(TRIM(p.brand)),' ','')=REPLACE(LOWER(TRIM($${params.length})),' ','')`;}
-  res.json(await query(`${catalogProduct}${where} ORDER BY ${brand ? 'p.brand_position' : 'p.category_position'} ASC NULLS LAST,p.created_at DESC,p.id DESC LIMIT 100`,params));
+  res.json(await query(`${catalogProduct}${where} ORDER BY ${brand ? 'p.brand_position ASC NULLS LAST' : category ? 'p.category_position ASC NULLS LAST' : "CASE c.slug WHEN 'pod-systemy' THEN 1 WHEN 'ridyny' THEN 2 WHEN 'kartrydzhi' THEN 3 ELSE 4 END ASC,p.category_position ASC NULLS LAST"},p.created_at DESC,p.id DESC LIMIT 100`,params));
 }));
 app.get('/api/products/:slug',wrap(async(req,res)=>{
   const p=await query(`${catalogProduct} WHERE p.slug=$1 AND p.is_active=true AND c.is_active=true`,[req.params.slug]);
